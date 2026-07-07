@@ -1,4 +1,4 @@
-const CACHE_NAME = 'edith-mobile-cache-v2';
+const CACHE_NAME = 'edith-mobile-cache-v3';
 const STATIC_ASSETS = [
   '/mobile',
   '/manifest.json',
