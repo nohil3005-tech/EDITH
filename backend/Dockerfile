@@ -8,7 +8,7 @@ RUN npm ci
 COPY tsconfig.json ./
 COPY src ./src
 
-RUN npm run build
+RUN npm run build && cp -r src/db/migrations dist/db/migrations
 
 # ─── Production stage ───────────────────────────────────────
 FROM node:20-alpine AS production
