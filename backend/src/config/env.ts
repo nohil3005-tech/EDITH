@@ -74,6 +74,7 @@ const envSchema = z.object({
   GOOGLE_CLIENT_ID: z.string().optional(),
   GATE2_CODENAME: z.string().optional(),
   JWT_SECRET: z.string().default('edith-jwt-secret-key'),
+  OWNER_EMAIL: z.string().optional(),
 });
 
 const parsed = envSchema.safeParse(process.env);

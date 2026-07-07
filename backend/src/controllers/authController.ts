@@ -34,23 +34,107 @@ export async function gate2Verify(req: AuthRequest, res: Response): Promise<void
 }
 
 export async function googleLogin(req: AuthRequest, res: Response): Promise<void> {
-  const [user] = await db.select().from(users).where(eq(users.id, DEFAULT_USER_ID)).limit(1);
-  if (!user) {
-    res.status(404).json(errorResponse('USER_NOT_FOUND', 'Default user not found'));
+  const { email, name, supabaseId, avatarUrl } = req.body as {
+    email: string;
+    name?: string;
+    supabaseId: string;
+    avatarUrl?: string;
+  };
+
+  if (!email || !supabaseId) {
+    res.status(400).json(errorResponse('BAD_REQUEST', 'Email and supabaseId are required.'));
     return;
   }
-  const token = jwt.sign({ userId: user.id, email: user.email, role: 'admin' }, env.JWT_SECRET, { expiresIn: '30d' });
-  res.json(successResponse({ status: 'active', token, user }));
+
+  // 1. Search for existing user matching Supabase ID
+  let [user] = await db.select().from(users).where(eq(users.supabaseId, supabaseId)).limit(1);
+
+  // 2. If not found by Supabase ID, search by Email
+  if (!user) {
+    [user] = await db.select().from(users).where(eq(users.email, email)).limit(1);
+    
+    if (user) {
+      // User existed by email, update their Supabase ID
+      const [updated] = await db
+        .update(users)
+        .set({ supabaseId, updatedAt: new Date().toISOString() })
+        .where(eq(users.id, user.id))
+        .returning();
+      user = updated;
+    }
+  }
+
+  // 3. If still not found, check if we can adopt the default user row (maintains existing data)
+  if (!user) {
+    const [defaultUser] = await db.select().from(users).where(eq(users.id, DEFAULT_USER_ID)).limit(1);
+    
+    // If the default user still has the placeholder email, adopt it!
+    if (defaultUser && defaultUser.email === 'admin@edith.local') {
+      const [updated] = await db
+        .update(users)
+        .set({
+          email,
+          supabaseId,
+          profile: { name: name || 'EDITH Operator', avatar: avatarUrl || null },
+          updatedAt: new Date().toISOString(),
+        })
+        .where(eq(users.id, DEFAULT_USER_ID))
+        .returning();
+      user = updated;
+    }
+  }
+
+  // 4. If still not found, create a brand-new user record
+  if (!user) {
+    const newId = supabaseId;
+    const isOwner = email.toLowerCase() === (env.OWNER_EMAIL || '').toLowerCase();
+    
+    // First user is active, others are pending
+    const status = isOwner ? 'active' : 'pending';
+    
+    const [inserted] = await db
+      .insert(users)
+      .values({
+        id: newId,
+        email,
+        supabaseId,
+        role: isOwner ? 'admin' : 'user',
+        status,
+        profile: { name: name || 'User', avatar: avatarUrl || null },
+        preferences: {},
+        paymentSettings: {},
+        onboardingCompleted: false,
+      } as any)
+      .returning();
+    user = inserted;
+  }
+
+  // 5. Verify status
+  if (user.status === 'blocked') {
+    res.status(403).json(errorResponse('BLOCKED', 'Your account has been blocked.'));
+    return;
+  }
+
+  // 6. Generate backend-signed JWT token
+  const token = jwt.sign(
+    { userId: user.id, email: user.email, role: user.role },
+    env.JWT_SECRET || 'secret',
+    { expiresIn: '30d' }
+  );
+
+  res.json(successResponse({ status: user.status, token, user }));
 }
 
 
-export async function getProfile(_req: AuthRequest, res: Response): Promise<void> {
-  const [user] = await db.select().from(users).where(eq(users.id, DEFAULT_USER_ID)).limit(1);
-  if (!user) { res.status(404).json(errorResponse('USER_NOT_FOUND', 'Default user not found')); return; }
+export async function getProfile(req: AuthRequest, res: Response): Promise<void> {
+  const userId = req.user?.id || DEFAULT_USER_ID;
+  const [user] = await db.select().from(users).where(eq(users.id, userId)).limit(1);
+  if (!user) { res.status(404).json(errorResponse('USER_NOT_FOUND', 'User profile not found')); return; }
   res.json(successResponse(user));
 }
 
 export async function updateProfile(req: AuthRequest, res: Response): Promise<void> {
+  const userId = req.user?.id || DEFAULT_USER_ID;
   const { profile, preferences } = req.body as {
     profile?: Record<string, unknown>;
     preferences?: Record<string, unknown>;
@@ -65,35 +149,38 @@ export async function updateProfile(req: AuthRequest, res: Response): Promise<vo
   const [updated] = await db
     .update(users)
     .set(updateData as any)
-    .where(eq(users.id, DEFAULT_USER_ID))
+    .where(eq(users.id, userId))
     .returning();
 
   res.json(successResponse(updated));
 }
 
 export async function updatePaymentSettings(req: AuthRequest, res: Response): Promise<void> {
+  const userId = req.user?.id || DEFAULT_USER_ID;
   const paymentSettings = req.body as Record<string, unknown>;
 
   const [updated] = await db
     .update(users)
     .set({ paymentSettings, updatedAt: new Date().toISOString() } as any)
-    .where(eq(users.id, DEFAULT_USER_ID))
+    .where(eq(users.id, userId))
     .returning();
 
   res.json(successResponse(updated));
 }
 
-export async function completeOnboarding(_req: AuthRequest, res: Response): Promise<void> {
+export async function completeOnboarding(req: AuthRequest, res: Response): Promise<void> {
+  const userId = req.user?.id || DEFAULT_USER_ID;
   await db
     .update(users)
     .set({ onboardingCompleted: true, updatedAt: new Date().toISOString() } as any)
-    .where(eq(users.id, DEFAULT_USER_ID));
+    .where(eq(users.id, userId));
 
   res.json(successResponse({ onboardingCompleted: true }));
 }
 
-export async function exportData(_req: AuthRequest, res: Response): Promise<void> {
-  const [user] = await db.select().from(users).where(eq(users.id, DEFAULT_USER_ID)).limit(1);
+export async function exportData(req: AuthRequest, res: Response): Promise<void> {
+  const userId = req.user?.id || DEFAULT_USER_ID;
+  const [user] = await db.select().from(users).where(eq(users.id, userId)).limit(1);
 
   res.setHeader('Content-Disposition', 'attachment; filename="edith-data-export.json"');
   res.setHeader('Content-Type', 'application/json');

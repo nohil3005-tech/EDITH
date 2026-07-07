@@ -275,6 +275,11 @@ async function request<T = unknown>(
     'x-api-key': API_KEY,
   };
 
+  const token = typeof window !== 'undefined' ? localStorage.getItem('edith_token') : null;
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
+
   try {
     const res = await fetch(`${BASE}${path}`, {
       method,
@@ -430,7 +435,7 @@ export const api = {
     getConfig:       ()              => get('/auth/config'),
     gate1Verify:     (password: string) => post('/auth/gate1', { password }),
     gate2Verify:     (codename: string) => post('/auth/gate2', { codename }),
-    googleLogin:     (idToken: string) => post('/auth/google/login', { idToken }),
+    googleLogin:     (body: unknown) => post('/auth/google/login', body),
     profile:         ()              => get('/auth/profile'),
     updateProfile:   (body: unknown) => put('/auth/profile', body),
     paymentSettings: (body: unknown) => put('/auth/payment-settings', body),

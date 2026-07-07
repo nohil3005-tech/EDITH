@@ -221,13 +221,19 @@ function NotificationsDropdown() {
 }
 
 function AppLayout() {
-  const { loading } = useAuth();
+  const { user, loading } = useAuth();
 
   const isMobileRoute = typeof window !== 'undefined' && window.location.pathname.startsWith('/mobile');
+  const isAuthRoute = typeof window !== 'undefined' && window.location.pathname.startsWith('/auth');
   const navigate = useNavigate();
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
+
+    if (!loading && !user && !isAuthRoute) {
+      navigate({ to: '/auth' });
+      return;
+    }
 
     if (isMobileRoute) {
       localStorage.setItem('prefer_desktop', 'false');
@@ -240,12 +246,21 @@ function AppLayout() {
     if (isMobileDevice && !preferDesktop) {
       navigate({ to: '/mobile' });
     }
-  }, [isMobileRoute, navigate]);
+  }, [user, loading, isMobileRoute, isAuthRoute, navigate]);
 
   if (loading) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-[#07070d] text-indigo-500">
         <Loader2 className="h-10 w-10 animate-spin" />
+      </div>
+    );
+  }
+
+  if (isAuthRoute) {
+    return (
+      <div className="min-h-screen w-full bg-[#07070d] text-foreground font-sans overflow-x-hidden">
+        <Outlet />
+        <Toaster />
       </div>
     );
   }

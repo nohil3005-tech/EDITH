@@ -1,6 +1,7 @@
 import { useEffect, useState, createContext, useContext, ReactNode } from "react";
 import api from "@/lib/api";
 import { useEdith } from "@/lib/store";
+import { supabase } from "@/integrations/supabase/client";
 
 export type AuthUser = {
   id: string;
@@ -55,15 +56,9 @@ function parseJwt(token: string) {
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [token, setTokenState] = useState<string | null>(null);
-  const [user, setUser] = useState<AuthUser | null>({
-    id: "00000000-0000-0000-0000-000000000001",
-    email: "admin@edith.local",
-    role: "admin",
-    name: "EDITH Operator",
-    onboardingCompleted: true,
-  });
+  const [user, setUser] = useState<AuthUser | null>(null);
   const [loading, setLoading] = useState(true);
-  const [gateStage, setGateStage] = useState<1 | 2 | 3 | 4>(4); // Always authenticate (stage 4)
+  const [gateStage, setGateStage] = useState<1 | 2 | 3 | 4>(1); // Start unauthenticated
   const [isPendingApproval, setIsPendingApproval] = useState(false);
   const [isBlocked, setIsBlocked] = useState(false);
 
@@ -76,22 +71,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setTokenState(newToken);
   };
 
-  const evaluateToken = (tok: string | null) => {
-    setGateStage(4);
-    setUser({
-      id: "00000000-0000-0000-0000-000000000001",
-      email: "admin@edith.local",
-      role: "admin",
-      name: "EDITH Operator",
-      onboardingCompleted: true,
-    });
+  const evaluateToken = async (tok: string | null) => {
+    if (tok) {
+      setGateStage(4);
+      await refreshProfile();
+    } else {
+      setUser(null);
+      setGateStage(1);
+    }
   };
 
-  const logout = () => {
+  const logout = async () => {
     setToken(null);
+    setUser(null);
     setIsPendingApproval(false);
     setIsBlocked(false);
-    setGateStage(4);
+    setGateStage(1);
+    await supabase.auth.signOut();
   };
 
   const refreshProfile = async () => {
@@ -174,10 +170,48 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   useEffect(() => {
+    // 1. Initial check for local session token
     const savedToken = localStorage.getItem("edith_token");
-    setTokenState(savedToken);
-    setGateStage(4);
-    refreshProfile();
+    if (savedToken) {
+      setTokenState(savedToken);
+      setGateStage(4);
+      refreshProfile().finally(() => setLoading(false));
+    } else {
+      setLoading(false);
+    }
+
+    // 2. Listen to Supabase auth events for Google logins
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      if (session?.user) {
+        // Exchange with backend to obtain a secure backend-signed JWT token
+        try {
+          const res = await api.auth.googleLogin({
+            email: session.user.email!,
+            name: session.user.user_metadata?.full_name || session.user.user_metadata?.display_name || session.user.email?.split('@')[0],
+            supabaseId: session.user.id,
+            avatarUrl: session.user.user_metadata?.avatar_url || null
+          }) as any;
+          if (res?.data?.token) {
+            setToken(res.data.token);
+            setGateStage(4);
+            await refreshProfile();
+          }
+        } catch (err) {
+          console.error("Backend Google Login exchange failed:", err);
+          setToken(null);
+          setUser(null);
+          setGateStage(1);
+        }
+      } else if (event === 'SIGNED_OUT') {
+        setToken(null);
+        setUser(null);
+        setGateStage(1);
+      }
+    });
+
+    return () => {
+      subscription.unsubscribe();
+    };
   }, []);
 
   return (
