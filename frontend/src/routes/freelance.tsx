@@ -1239,7 +1239,7 @@ Verified by EDITH AI Agent Swarm
                             <div key={idx} className="flex justify-between items-center bg-card p-2 rounded border border-border text-xs">
                               <span className="font-mono text-muted-foreground">{f.filename}</span>
                               <a
-                                href={`http://localhost:3001${f.url}`}
+                                href={`${api.BASE_URL}${f.url}`}
                                 target="_blank"
                                 rel="noreferrer"
                                 className="text-primary hover:underline text-[10px] font-semibold"

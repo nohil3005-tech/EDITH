@@ -42,7 +42,7 @@ function generateMockResponse(message: string): string {
   }
   
   if (clean.includes('status') || clean.includes('health') || clean.includes('check') || clean.includes('alive') || clean.includes('running')) {
-    return `🟢 **System Check (Sandbox Mode)**\n\n- **Backend Server**: Connected & Online\n- **SQLite Database**: Connected & Operational\n- **Worker Scheduler**: Running (30s automation ticks)\n- **OpenRouter API Key**: Not configured (bypassed locally)`;
+    return `🟢 **System Check (Sandbox Mode)**\n\n- **Backend Server**: Connected & Online\n- **PostgreSQL Database**: Connected & Operational\n- **Worker Scheduler**: Running (30s automation ticks)\n- **OpenRouter API Key**: Not configured (bypassed locally)`;
   }
 
   if (clean.includes('help') || clean.includes('what can you do') || clean.includes('command')) {

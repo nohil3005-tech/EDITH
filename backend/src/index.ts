@@ -36,15 +36,25 @@ const app = express();
 app.set('trust proxy', false); // Desktop — no reverse proxy
 app.use(helmet({ contentSecurityPolicy: false, crossOriginEmbedderPolicy: false }));
 
-// ─── CORS — only allow our Electron renderer (localhost:3001) ──
+// ─── CORS Configuration ────────────────────────────────────────
+const allowedOrigins = [
+  process.env.FRONTEND_URL,
+  'http://localhost:8080',
+  'http://localhost:3000',
+  'http://localhost:3001',
+  'http://localhost:5173',
+  'http://127.0.0.1:8080',
+  'http://127.0.0.1:3000'
+].filter(Boolean) as string[];
+
 app.use(cors({
-  origin: [
-    'http://localhost:5000', 'http://127.0.0.1:5000',
-    'http://localhost:3000', 'http://127.0.0.1:3000',
-    'http://localhost:5001', 'http://127.0.0.1:5001',
-    'http://localhost:3001', 'http://127.0.0.1:3001',
-    'http://localhost:5173'
-  ],
+  origin: (origin, callback) => {
+    if (!origin || allowedOrigins.includes(origin) || origin.endsWith('.vercel.app')) {
+      callback(null, true);
+    } else {
+      callback(new Error(`Origin ${origin} not allowed by CORS`));
+    }
+  },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'x-api-key'],
@@ -86,9 +96,9 @@ app.use(globalErrorHandler);
 
 // ─── Bootstrap ───────────────────────────────────────────────
 async function bootstrap(): Promise<void> {
-  // Step 1 — Run SQLite migration (creates DB + tables if first launch)
+  // Step 1 — Run PostgreSQL migrations
   try {
-    runMigrations();
+    await runMigrations();
     
     // Reset any active running sessions to failed so they aren't stuck on reload
     const db = getDatabase();
@@ -141,16 +151,15 @@ async function bootstrap(): Promise<void> {
   }
 
   // Step 3 — Start HTTP server
-  const PORT = env.PORT; // 3001 in desktop mode
-  const server = app.listen(PORT, '127.0.0.1', () => {
-    logger.info({ port: PORT }, '🚀 EDITH Desktop Backend started');
+  const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : env.PORT;
+  const server = app.listen(PORT, '0.0.0.0', () => {
+    logger.info({ port: PORT }, '🚀 EDITH Backend started on 0.0.0.0');
 
     if (!env.OPENROUTER_API_KEY || env.OPENROUTER_API_KEY === 'placeholder' || env.OPENROUTER_API_KEY === 'PASTE_YOUR_KEY_HERE' || env.OPENROUTER_API_KEY.includes('PASTE_YOUR_KEY_HERE')) {
-      logger.warn('⚠️  OPENROUTER_API_KEY not set — AI features disabled. Add it to .env');
+      logger.warn('⚠️  OPENROUTER_API_KEY not set — AI features disabled. Add it to environment variables');
     }
 
-    // ── Signal to Electron that the backend is ready ──────
-    // Electron's main.js watches stdout for this exact string
+    // ── Signal to Electron/Log listener that the backend is ready ──────
     console.log('BACKEND_READY');
   });
 

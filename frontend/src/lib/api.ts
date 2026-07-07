@@ -12,9 +12,9 @@
 // Detect desktop mode
 const isDesktop = typeof window !== 'undefined' && !!(window as any).edithDesktop;
 
-const BASE_URL = isDesktop
+export const BASE_URL = isDesktop
   ? ((window as any).edithDesktop?.apiBaseUrl ?? 'http://localhost:3001')
-  : (import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:3001');
+  : (import.meta.env.VITE_API_URL ?? import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:3001');
 
 export const API_KEY = isDesktop
   ? ((window as any).edithDesktop?.apiKey ?? 'edith-desktop-key')
@@ -482,6 +482,7 @@ export const api = {
     remove:   (id: string)                => del(`/platforms/${id}`),
     settings: (id: string, body: unknown) => put(`/platforms/${id}/settings`, body),
   },
+  BASE_URL
 };
 
 export default api;

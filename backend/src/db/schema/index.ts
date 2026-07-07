@@ -1,77 +1,78 @@
 /**
- * EDITH Desktop — Drizzle SQLite Schema
- * Replaces PostgreSQL UUID types with SQLite text for PKs.
- * All tables use TEXT primary keys (UUIDs stored as text strings).
+ * EDITH — Drizzle PostgreSQL Schema
+ * Migrated from SQLite table types.
+ * Connects to Neon PostgreSQL using DATABASE_URL.
  */
 
 import {
-  sqliteTable,
+  pgTable,
   text,
   integer,
-  real,
-  blob,
-} from 'drizzle-orm/sqlite-core';
+  doublePrecision,
+  jsonb,
+  boolean,
+} from 'drizzle-orm/pg-core';
 import { sql } from 'drizzle-orm';
 
-// ─── Helper: current timestamp ───────────────────────────────
-const now = sql`(strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))`;
+// ─── Helper: current timestamp in ISO format ─────────────────
+const now = sql`to_char(now() at time zone 'utc', 'YYYY-MM-DD"T"HH24:MI:SS"Z"')`;
 
 // ─── users ───────────────────────────────────────────────────
-export const users = sqliteTable('users', {
+export const users = pgTable('users', {
   id: text('id').primaryKey(),
   email: text('email').notNull().unique(),
   supabaseId: text('supabase_id'),
   role: text('role').notNull().default('user'),
   status: text('status').notNull().default('active'),
-  profile: text('profile', { mode: 'json' }).notNull().default('{}'),
-  preferences: text('preferences', { mode: 'json' }).notNull().default('{}'),
-  paymentSettings: text('payment_settings', { mode: 'json' }).notNull().default('{}'),
-  onboardingCompleted: integer('onboarding_completed', { mode: 'boolean' }).notNull().default(false),
+  profile: jsonb('profile').notNull().default({}),
+  preferences: jsonb('preferences').notNull().default({}),
+  paymentSettings: jsonb('payment_settings').notNull().default({}),
+  onboardingCompleted: boolean('onboarding_completed').notNull().default(false),
   createdAt: text('created_at').notNull().default(now as unknown as string),
   updatedAt: text('updated_at').notNull().default(now as unknown as string),
 });
 
 // ─── activity_log ─────────────────────────────────────────────
-export const activityLog = sqliteTable('activity_log', {
+export const activityLog = pgTable('activity_log', {
   id: text('id').primaryKey(),
   userId: text('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
   type: text('type').notNull(),
   description: text('description').notNull(),
-  metadata: text('metadata', { mode: 'json' }).notNull().default('{}'),
+  metadata: jsonb('metadata').notNull().default({}),
   createdAt: text('created_at').notNull().default(now as unknown as string),
 });
 
 // ─── freelance_jobs ───────────────────────────────────────────
-export const freelanceJobs = sqliteTable('freelance_jobs', {
+export const freelanceJobs = pgTable('freelance_jobs', {
   id: text('id').primaryKey(),
   userId: text('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
   sourcePlatform: text('source_platform').notNull(),
   externalId: text('external_id').notNull(),
   title: text('title').notNull(),
   description: text('description').notNull().default(''),
-  budgetMin: real('budget_min'),
-  budgetMax: real('budget_max'),
-  clientRating: real('client_rating'),
+  budgetMin: doublePrecision('budget_min'),
+  budgetMax: doublePrecision('budget_max'),
+  clientRating: doublePrecision('client_rating'),
   deadline: text('deadline'),
-  tags: text('tags', { mode: 'json' }).notNull().default('[]'),
-  aiScore: real('ai_score'),
-  aiInsights: text('ai_insights', { mode: 'json' }),
+  tags: jsonb('tags').notNull().default([]),
+  aiScore: doublePrecision('ai_score'),
+  aiInsights: jsonb('ai_insights'),
   status: text('status').notNull().default('new'),
-  rawData: text('raw_data', { mode: 'json' }),
+  rawData: jsonb('raw_data'),
   createdAt: text('created_at').notNull().default(now as unknown as string),
   updatedAt: text('updated_at').notNull().default(now as unknown as string),
 });
 
 // ─── proposals ───────────────────────────────────────────────
-export const proposals = sqliteTable('proposals', {
+export const proposals = pgTable('proposals', {
   id: text('id').primaryKey(),
   userId: text('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
   jobId: text('job_id').notNull().references(() => freelanceJobs.id, { onDelete: 'cascade' }),
   draftText: text('draft_text').notNull().default(''),
   finalText: text('final_text'),
-  bidAmount: real('bid_amount'),
+  bidAmount: doublePrecision('bid_amount'),
   deliveryDays: integer('delivery_days'),
-  portfolioItems: text('portfolio_items', { mode: 'json' }).notNull().default('[]'),
+  portfolioItems: jsonb('portfolio_items').notNull().default([]),
   status: text('status').notNull().default('draft'),
   humanModifiedAt: text('human_modified_at'),
   sentAt: text('sent_at'),
@@ -80,27 +81,27 @@ export const proposals = sqliteTable('proposals', {
 });
 
 // ─── active_freelance_jobs ────────────────────────────────────
-export const activeFreelanceJobs = sqliteTable('active_freelance_jobs', {
+export const activeFreelanceJobs = pgTable('active_freelance_jobs', {
   id: text('id').primaryKey(),
   userId: text('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
   jobId: text('job_id').notNull().references(() => freelanceJobs.id, { onDelete: 'cascade' }),
   proposalId: text('proposal_id').references(() => proposals.id),
   column: text('column_name').notNull().default('planning'),
-  subtasks: text('subtasks', { mode: 'json' }).notNull().default('[]'),
-  qcResults: text('qc_results', { mode: 'json' }),
-  deliveryFiles: text('delivery_files', { mode: 'json' }).notNull().default('[]'),
+  subtasks: jsonb('subtasks').notNull().default([]),
+  qcResults: jsonb('qc_results'),
+  deliveryFiles: jsonb('delivery_files').notNull().default([]),
   deliveryMessage: text('delivery_message'),
-  clientRating: real('client_rating'),
+  clientRating: doublePrecision('client_rating'),
   feedback: text('feedback'),
   createdAt: text('created_at').notNull().default(now as unknown as string),
   updatedAt: text('updated_at').notNull().default(now as unknown as string),
 });
 
 // ─── freelance_deliveries ─────────────────────────────────────
-export const freelanceDeliveries = sqliteTable('freelance_deliveries', {
+export const freelanceDeliveries = pgTable('freelance_deliveries', {
   id: text('id').primaryKey(),
   activeJobId: text('active_job_id').notNull().references(() => activeFreelanceJobs.id, { onDelete: 'cascade' }),
-  files: text('files', { mode: 'json' }).notNull().default('[]'),
+  files: jsonb('files').notNull().default([]),
   deliveryMessage: text('delivery_message').notNull().default(''),
   clientResponse: text('client_response'),
   revisionCount: integer('revision_count').notNull().default(0),
@@ -108,96 +109,96 @@ export const freelanceDeliveries = sqliteTable('freelance_deliveries', {
 });
 
 // ─── dropshipping_products ────────────────────────────────────
-export const dropshippingProducts = sqliteTable('dropshipping_products', {
+export const dropshippingProducts = pgTable('dropshipping_products', {
   id: text('id').primaryKey(),
   userId: text('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
   source: text('source').notNull(),
   name: text('name').notNull(),
   description: text('description').notNull().default(''),
-  costPrice: real('cost_price').notNull().default(0),
-  targetSellPrice: real('target_sell_price').notNull().default(0),
+  costPrice: doublePrecision('cost_price').notNull().default(0),
+  targetSellPrice: doublePrecision('target_sell_price').notNull().default(0),
   category: text('category').notNull().default('general'),
-  trendingScore: real('trending_score').notNull().default(0),
-  trendData: text('trend_data', { mode: 'json' }),
+  trendingScore: doublePrecision('trending_score').notNull().default(0),
+  trendData: jsonb('trend_data'),
   validationStatus: text('validation_status').notNull().default('pending'),
-  aiScore: real('ai_score'),
-  images: text('images', { mode: 'json' }).notNull().default('[]'),
+  aiScore: doublePrecision('ai_score'),
+  images: jsonb('images').notNull().default([]),
   createdAt: text('created_at').notNull().default(now as unknown as string),
   updatedAt: text('updated_at').notNull().default(now as unknown as string),
 });
 
 // ─── validation_results ───────────────────────────────────────
-export const validationResults = sqliteTable('validation_results', {
+export const validationResults = pgTable('validation_results', {
   id: text('id').primaryKey(),
   productId: text('product_id').notNull().references(() => dropshippingProducts.id, { onDelete: 'cascade' }),
   stepName: text('step_name').notNull(),
   status: text('status').notNull().default('pending'),
-  resultData: text('result_data', { mode: 'json' }),
+  resultData: jsonb('result_data'),
   completedAt: text('completed_at'),
 });
 
 // ─── dropshipping_stores ──────────────────────────────────────
-export const dropshippingStores = sqliteTable('dropshipping_stores', {
+export const dropshippingStores = pgTable('dropshipping_stores', {
   id: text('id').primaryKey(),
   userId: text('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
   productId: text('product_id').notNull().references(() => dropshippingProducts.id, { onDelete: 'cascade' }),
   name: text('name').notNull(),
   domain: text('domain'),
   platform: text('platform').notNull().default('shopify'),
-  settings: text('settings', { mode: 'json' }).notNull().default('{}'),
+  settings: jsonb('settings').notNull().default({}),
   status: text('status').notNull().default('new'),
   createdAt: text('created_at').notNull().default(now as unknown as string),
   updatedAt: text('updated_at').notNull().default(now as unknown as string),
 });
 
 // ─── store_orders ─────────────────────────────────────────────
-export const storeOrders = sqliteTable('store_orders', {
+export const storeOrders = pgTable('store_orders', {
   id: text('id').primaryKey(),
   storeId: text('store_id').notNull().references(() => dropshippingStores.id, { onDelete: 'cascade' }),
-  orderData: text('order_data', { mode: 'json' }).notNull().default('{}'),
-  revenue: real('revenue').notNull().default(0),
-  cost: real('cost').notNull().default(0),
+  orderData: jsonb('order_data').notNull().default({}),
+  revenue: doublePrecision('revenue').notNull().default(0),
+  cost: doublePrecision('cost').notNull().default(0),
   placedAt: text('placed_at').notNull().default(now as unknown as string),
 });
 
 // ─── ads ─────────────────────────────────────────────────────
-export const ads = sqliteTable('ads', {
+export const ads = pgTable('ads', {
   id: text('id').primaryKey(),
   storeId: text('store_id').notNull().references(() => dropshippingStores.id, { onDelete: 'cascade' }),
   platform: text('platform').notNull(),
   creativeType: text('creative_type').notNull().default('image'),
   adName: text('ad_name').notNull(),
-  spend: real('spend').notNull().default(0),
-  revenue: real('revenue').notNull().default(0),
-  roas: real('roas').notNull().default(0),
+  spend: doublePrecision('spend').notNull().default(0),
+  revenue: doublePrecision('revenue').notNull().default(0),
+  roas: doublePrecision('roas').notNull().default(0),
   status: text('status').notNull().default('draft'),
-  metadata: text('metadata', { mode: 'json' }).notNull().default('{}'),
+  metadata: jsonb('metadata').notNull().default({}),
   createdAt: text('created_at').notNull().default(now as unknown as string),
   updatedAt: text('updated_at').notNull().default(now as unknown as string),
 });
 
 // ─── payments ─────────────────────────────────────────────────
-export const payments = sqliteTable('payments', {
+export const payments = pgTable('payments', {
   id: text('id').primaryKey(),
   userId: text('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
   sourceType: text('source_type').notNull(),
   sourceId: text('source_id').notNull(),
-  amount: real('amount').notNull(),
-  gatewayFee: real('gateway_fee').notNull().default(0),
-  platformFee: real('platform_fee').notNull().default(0),
-  netAmount: real('net_amount').notNull(),
+  amount: doublePrecision('amount').notNull(),
+  gatewayFee: doublePrecision('gateway_fee').notNull().default(0),
+  platformFee: doublePrecision('platform_fee').notNull().default(0),
+  netAmount: doublePrecision('net_amount').notNull(),
   status: text('status').notNull().default('pending'),
   gateway: text('gateway').notNull(),
   gatewayPaymentId: text('gateway_payment_id'),
   currency: text('currency').notNull().default('USD'),
   customerEmail: text('customer_email'),
-  metadata: text('metadata', { mode: 'json' }).notNull().default('{}'),
+  metadata: jsonb('metadata').notNull().default({}),
   createdAt: text('created_at').notNull().default(now as unknown as string),
   completedAt: text('completed_at'),
 });
 
 // ─── invoices ─────────────────────────────────────────────────
-export const invoices = sqliteTable('invoices', {
+export const invoices = pgTable('invoices', {
   id: text('id').primaryKey(),
   userId: text('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
   paymentId: text('payment_id').references(() => payments.id),
@@ -205,10 +206,10 @@ export const invoices = sqliteTable('invoices', {
   clientName: text('client_name').notNull(),
   clientEmail: text('client_email').notNull(),
   clientAddress: text('client_address'),
-  items: text('items', { mode: 'json' }).notNull().default('[]'),
-  subtotal: real('subtotal').notNull().default(0),
-  tax: real('tax').notNull().default(0),
-  total: real('total').notNull().default(0),
+  items: jsonb('items').notNull().default([]),
+  subtotal: doublePrecision('subtotal').notNull().default(0),
+  tax: doublePrecision('tax').notNull().default(0),
+  total: doublePrecision('total').notNull().default(0),
   status: text('status').notNull().default('draft'),
   paymentLink: text('payment_link'),
   notes: text('notes'),
@@ -220,10 +221,10 @@ export const invoices = sqliteTable('invoices', {
 });
 
 // ─── payouts ─────────────────────────────────────────────────
-export const payouts = sqliteTable('payouts', {
+export const payouts = pgTable('payouts', {
   id: text('id').primaryKey(),
   userId: text('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
-  amount: real('amount').notNull(),
+  amount: doublePrecision('amount').notNull(),
   sourceGateway: text('source_gateway').notNull(),
   destinationBank: text('destination_bank'),
   destinationAccountLast4: text('destination_account_last4'),
@@ -234,20 +235,20 @@ export const payouts = sqliteTable('payouts', {
 });
 
 // ─── agent_logs ───────────────────────────────────────────────
-export const agentLogs = sqliteTable('agent_logs', {
+export const agentLogs = pgTable('agent_logs', {
   id: text('id').primaryKey(),
   userId: text('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
   agentName: text('agent_name').notNull(),
   action: text('action').notNull(),
-  input: text('input', { mode: 'json' }).notNull().default('{}'),
-  output: text('output', { mode: 'json' }),
+  input: jsonb('input').notNull().default({}),
+  output: jsonb('output'),
   error: text('error'),
   durationMs: integer('duration_ms').notNull().default(0),
   createdAt: text('created_at').notNull().default(now as unknown as string),
 });
 
 // ─── chat_sessions ────────────────────────────────────────────
-export const chatSessions = sqliteTable('chat_sessions', {
+export const chatSessions = pgTable('chat_sessions', {
   id: text('id').primaryKey(),
   userId: text('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
   title: text('title').notNull().default('New Conversation'),
@@ -258,19 +259,19 @@ export const chatSessions = sqliteTable('chat_sessions', {
 });
 
 // ─── chat_messages ────────────────────────────────────────────
-export const chatMessages = sqliteTable('chat_messages', {
+export const chatMessages = pgTable('chat_messages', {
   id: text('id').primaryKey(),
   sessionId: text('session_id').notNull().references(() => chatSessions.id, { onDelete: 'cascade' }),
   userId: text('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
   role: text('role').notNull(),
   content: text('content').notNull(),
   commandType: text('command_type'),
-  responseData: text('response_data', { mode: 'json' }),
+  responseData: jsonb('response_data'),
   createdAt: text('created_at').notNull().default(now as unknown as string),
 });
 
 // ─── files ───────────────────────────────────────────────────
-export const files = sqliteTable('files', {
+export const files = pgTable('files', {
   id: text('id').primaryKey(),
   userId: text('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
   filename: text('filename').notNull(),
@@ -281,7 +282,7 @@ export const files = sqliteTable('files', {
   storagePath: text('storage_path').notNull(),
   publicUrl: text('public_url'),
   folder: text('folder').notNull().default('general'),
-  tags: text('tags', { mode: 'json' }).notNull().default('[]'),
+  tags: jsonb('tags').notNull().default([]),
   downloadCount: integer('download_count').notNull().default(0),
   shareToken: text('share_token').unique(),
   shareExpiresAt: text('share_expires_at'),
@@ -289,7 +290,7 @@ export const files = sqliteTable('files', {
 });
 
 // ─── marketplace_plugins ──────────────────────────────────────
-export const marketplacePlugins = sqliteTable('marketplace_plugins', {
+export const marketplacePlugins = pgTable('marketplace_plugins', {
   id: text('id').primaryKey(),
   name: text('name').notNull(),
   category: text('category').notNull(),
@@ -300,73 +301,73 @@ export const marketplacePlugins = sqliteTable('marketplace_plugins', {
   rating: integer('rating').notNull().default(0),
   installs: integer('installs').notNull().default(0),
   iconUrl: text('icon_url'),
-  screenshots: text('screenshots', { mode: 'json' }).notNull().default('[]'),
+  screenshots: jsonb('screenshots').notNull().default([]),
   createdAt: text('created_at').notNull().default(now as unknown as string),
 });
 
 // ─── installed_plugins ────────────────────────────────────────
-export const installedPlugins = sqliteTable('installed_plugins', {
+export const installedPlugins = pgTable('installed_plugins', {
   id: text('id').primaryKey(),
   userId: text('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
   pluginId: text('plugin_id').notNull().references(() => marketplacePlugins.id, { onDelete: 'cascade' }),
   enabled: text('enabled').notNull().default('true'),
-  config: text('config', { mode: 'json' }).notNull().default('{}'),
+  config: jsonb('config').notNull().default({}),
   installedAt: text('installed_at').notNull().default(now as unknown as string),
 });
 
 // ─── referrals ───────────────────────────────────────────────
-export const referrals = sqliteTable('referrals', {
+export const referrals = pgTable('referrals', {
   id: text('id').primaryKey(),
   referrerId: text('referrer_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
   referredEmail: text('referred_email').notNull(),
   referralCode: text('referral_code').notNull().unique(),
   status: text('status').notNull().default('pending'),
-  commissionEarned: real('commission_earned').notNull().default(0),
+  commissionEarned: doublePrecision('commission_earned').notNull().default(0),
   createdAt: text('created_at').notNull().default(now as unknown as string),
 });
 
 // ─── payment_methods ──────────────────────────────────────────
-export const paymentMethods = sqliteTable('payment_methods', {
+export const paymentMethods = pgTable('payment_methods', {
   id: text('id').primaryKey(),
   userId: text('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
   name: text('name').notNull(),
   type: text('type').notNull(),
-  details: text('details', { mode: 'json' }).notNull().default('{}'),
-  isActive: integer('is_active', { mode: 'boolean' }).notNull().default(true),
-  isDefault: integer('is_default', { mode: 'boolean' }).notNull().default(false),
+  details: jsonb('details').notNull().default({}),
+  isActive: boolean('is_active').notNull().default(true),
+  isDefault: boolean('is_default').notNull().default(false),
   sortOrder: integer('sort_order').notNull().default(0),
   createdAt: text('created_at').notNull().default(now as unknown as string),
   updatedAt: text('updated_at').notNull().default(now as unknown as string),
 });
 
 // ─── user_whitelist ───────────────────────────────────────────
-export const userWhitelist = sqliteTable('user_whitelist', {
+export const userWhitelist = pgTable('user_whitelist', {
   email: text('email').primaryKey(),
   role: text('role').notNull().default('user'),
   createdAt: text('created_at').notNull().default(now as unknown as string),
 });
 
 // ─── system_settings ──────────────────────────────────────────
-export const systemSettings = sqliteTable('system_settings', {
+export const systemSettings = pgTable('system_settings', {
   key: text('key').primaryKey(),
-  value: text('value', { mode: 'json' }).notNull().default('{}'),
+  value: jsonb('value').notNull().default({}),
   createdAt: text('created_at').notNull().default(now as unknown as string),
   updatedAt: text('updated_at').notNull().default(now as unknown as string),
 });
 
 // ─── notifications ────────────────────────────────────────────
-export const notifications = sqliteTable('notifications', {
+export const notifications = pgTable('notifications', {
   id: text('id').primaryKey(),
   userId: text('user_id').references(() => users.id, { onDelete: 'cascade' }),
   title: text('title'),
   message: text('message'),
-  read: integer('read', { mode: 'boolean' }).notNull().default(false),
+  read: boolean('read').notNull().default(false),
   type: text('type'),
   createdAt: text('created_at').notNull().default(now as unknown as string),
 });
 
 // ─── platform_accounts ─────────────────────────────────────────
-export const platformAccounts = sqliteTable('platform_accounts', {
+export const platformAccounts = pgTable('platform_accounts', {
   id: text('id').primaryKey(),
   userId: text('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
   platformName: text('platform_name').notNull(),
@@ -379,7 +380,7 @@ export const platformAccounts = sqliteTable('platform_accounts', {
 });
 
 // ─── platform_notifications ────────────────────────────────────
-export const platformNotifications = sqliteTable('platform_notifications', {
+export const platformNotifications = pgTable('platform_notifications', {
   id: text('id').primaryKey(),
   userId: text('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
   platformAccountId: text('platform_account_id').references(() => platformAccounts.id, { onDelete: 'cascade' }),
@@ -387,26 +388,26 @@ export const platformNotifications = sqliteTable('platform_notifications', {
   title: text('title').notNull(),
   description: text('description').notNull(),
   externalUrl: text('external_url'),
-  isRead: integer('is_read', { mode: 'boolean' }).notNull().default(false),
+  isRead: boolean('is_read').notNull().default(false),
   createdAt: text('created_at').notNull().default(now as unknown as string),
 });
 
 // ─── processor_sessions ───────────────────────────────────────
-export const processorSessions = sqliteTable('processor_sessions', {
+export const processorSessions = pgTable('processor_sessions', {
   id: text('id').primaryKey(),
   userId: text('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
   jobId: text('job_id').notNull(),
   status: text('status').notNull().default('queued'),
   currentStep: text('current_step').notNull().default('planning'),
   progressPercent: integer('progress_percent').notNull().default(0),
-  logs: text('logs', { mode: 'json' }).notNull().default('[]'),
-  outputFiles: text('output_files', { mode: 'json' }).notNull().default('[]'),
+  logs: jsonb('logs').notNull().default([]),
+  outputFiles: jsonb('output_files').notNull().default([]),
   createdAt: text('created_at').notNull().default(now as unknown as string),
   updatedAt: text('updated_at').notNull().default(now as unknown as string),
 });
 
 // ─── user_platforms ───────────────────────────────────────────
-export const userPlatforms = sqliteTable('user_platforms', {
+export const userPlatforms = pgTable('user_platforms', {
   id: text('id').primaryKey(),
   userId: text('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
   platformName: text('platform_name').notNull(),
@@ -416,7 +417,7 @@ export const userPlatforms = sqliteTable('user_platforms', {
   lastSynced: text('last_synced'),
   notificationsCount: integer('notifications_count').notNull().default(0),
   messagesCount: integer('messages_count').notNull().default(0),
-  isActive: integer('is_active', { mode: 'boolean' }).notNull().default(true),
+  isActive: boolean('is_active').notNull().default(true),
   createdAt: text('created_at').notNull().default(now as unknown as string),
   updatedAt: text('updated_at').notNull().default(now as unknown as string),
 });
@@ -448,5 +449,3 @@ export type ProcessorSessionInsert = typeof processorSessions.$inferInsert;
 export type ProcessorSessionSelect = typeof processorSessions.$inferSelect;
 export type UserPlatformInsert = typeof userPlatforms.$inferInsert;
 export type UserPlatformSelect = typeof userPlatforms.$inferSelect;
-
-

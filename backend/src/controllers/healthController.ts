@@ -12,12 +12,12 @@ export async function healthCheck(_req: AuthRequest, res: Response): Promise<voi
   const startTime = Date.now();
   const checks: Record<string, CheckResult> = {};
 
-  // ── SQLite Database ───────────────────────────────────────
+  // ── PostgreSQL Database ───────────────────────────────────
   try {
     const db = getDatabase();
     const t0 = Date.now();
-    db.get(sql`SELECT 1`);
-    checks.database = { status: 'ok', latencyMs: Date.now() - t0, detail: `SQLite: ${getDatabasePath()}` };
+    await db.execute(sql`SELECT 1`);
+    checks.database = { status: 'ok', latencyMs: Date.now() - t0, detail: 'PostgreSQL: connected' };
   } catch (err) {
     checks.database = { status: 'error', detail: err instanceof Error ? err.message : 'Unknown' };
   }
@@ -63,7 +63,7 @@ export async function healthCheck(_req: AuthRequest, res: Response): Promise<voi
   res.status(allOk ? 200 : 207).json(
     successResponse({
       status:         allOk ? 'healthy' : 'degraded',
-      mode:           'desktop',
+      mode:           env.NODE_ENV === 'production' ? 'production' : 'development',
       uptime:         Math.floor(process.uptime()),
       totalLatencyMs: Date.now() - startTime,
       checks,
@@ -71,7 +71,7 @@ export async function healthCheck(_req: AuthRequest, res: Response): Promise<voi
       environment:    env.NODE_ENV,
       timestamp:      new Date().toISOString(),
       aiModel:        env.DEFAULT_MODEL,
-      database:       'SQLite',
+      database:       'PostgreSQL',
     }),
   );
 }

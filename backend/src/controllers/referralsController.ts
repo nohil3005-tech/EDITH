@@ -13,6 +13,8 @@ import { successResponse, errorResponse } from '../types/api';
 import { DEFAULT_USER_ID } from '../config/constants';
 import { generateReferralCode } from '../utils/fingerprint';
 
+import { env } from '../config/env';
+
 const db           = getDatabase();
 const payoutTracker = new PayoutTracker();
 
@@ -28,7 +30,7 @@ export async function getReferralStats(_req: AuthRequest, res: Response): Promis
   const totalCommission    = rows.reduce((s, r) => s + Number(r.commissionEarned), 0);
 
   const referralCode = generateReferralCode(DEFAULT_USER_ID);
-  const referralLink = `http://localhost:3001/ref/${referralCode}`;
+  const referralLink = `${env.FRONTEND_URL}/ref/${referralCode}`;
 
   res.json(successResponse({
     referralCode,

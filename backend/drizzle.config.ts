@@ -1,17 +1,17 @@
 import type { Config } from 'drizzle-kit';
-import { join } from 'path';
+import * as dotenv from 'dotenv';
+dotenv.config();
 
-const appData = process.env.APPDATA ||
-  (process.platform === 'darwin'
-    ? join(process.env.HOME!, 'Library', 'Application Support')
-    : join(process.env.HOME!, '.config'));
+if (!process.env.DATABASE_URL) {
+  console.warn('⚠️ DATABASE_URL is not set. Drizzle-kit may fail if connecting to live database.');
+}
 
 export default {
   schema: './src/db/schema/index.ts',
   out: './src/db/migrations',
-  dialect: 'sqlite',
+  dialect: 'postgresql',
   dbCredentials: {
-    url: process.env.SQLITE_PATH ?? join(appData, 'EDITH', 'edith.db'),
+    url: process.env.DATABASE_URL || 'postgresql://localhost:5432/edith',
   },
   verbose: false,
   strict: false,

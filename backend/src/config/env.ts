@@ -29,6 +29,9 @@ const envSchema = z.object({
   PORT: z.coerce.number().default(3001),
   API_KEY: z.string().min(1).default('edith-desktop-key'),
 
+  // PostgreSQL Neon connection string
+  DATABASE_URL: z.string().optional(),
+
   // SQLite path (optional — defaults to %APPDATA%/EDITH/edith.db)
   SQLITE_PATH: z.string().optional(),
 

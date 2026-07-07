@@ -1,0 +1,23 @@
+services:
+  # Express Backend Web Service
+  - type: web
+    name: edith-backend
+    runtime: node
+    rootDir: backend
+    buildCommand: npm install && npm run build
+    startCommand: npm start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 10000
+      - key: DATABASE_URL
+        sync: false # Provide your Neon PostgreSQL connection string (DATABASE_URL)
+      - key: FRONTEND_URL
+        sync: false # Provide your Vercel frontend deployment URL (e.g. https://your-app.vercel.app)
+      - key: API_KEY
+        generateValue: true # Generates a secure API key automatically
+      - key: JWT_SECRET
+        generateValue: true # Generates a secure JWT secret key automatically
+      - key: OPENROUTER_API_KEY
+        sync: false # Provide your OpenRouter API key for AI features (optional but recommended)
