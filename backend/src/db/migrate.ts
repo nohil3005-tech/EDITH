@@ -24,6 +24,13 @@ VALUES (
   false
 ) ON CONFLICT (id) DO NOTHING;
 
+-- Clear any old mock data from previous deployments
+DELETE FROM active_freelance_jobs WHERE id = 'act-001';
+DELETE FROM proposals WHERE id = 'prop-001';
+DELETE FROM freelance_jobs WHERE id IN ('job-001', 'job-002', 'job-003', 'job-004');
+DELETE FROM platform_notifications WHERE id IN ('notif-001', 'notif-002');
+DELETE FROM user_platforms WHERE id IN ('platform-upwork', 'platform-fiverr');
+
 -- Seed marketplace plugins
 INSERT INTO marketplace_plugins (id, name, category, description, author, version, price, rating, installs)
 VALUES
