@@ -11,7 +11,7 @@ export default defineConfig({
     preset: process.env.VERCEL ? "vercel" : (process.env.NITRO_PRESET ?? "node-server"),
     output: process.env.VERCEL ? {
       dir: ".vercel/output",
-      serverDir: ".vercel/output/functions/__nitro.func",
+      serverDir: ".vercel/output/functions/__server.func",
       publicDir: ".vercel/output/static",
     } : undefined,
     // @ts-expect-error: routeRules is supported by Nitro but not exposed in @lovable.dev/vite-tanstack-config types
