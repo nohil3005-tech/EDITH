@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useState, useEffect } from "react";
-import { Search, Sparkles, Bookmark, BookmarkCheck, X, Plus, Loader2, Send, Trash2 } from "lucide-react";
+import { Search, Sparkles, Bookmark, BookmarkCheck, X, Plus, Loader2, Send, Trash2, Copy, FileText, Check, Briefcase, Clock, Coins } from "lucide-react";
 import { useEdith, useHydrated, type Job, type Proposal } from "@/lib/store";
 import { type CompletedJob } from "@/lib/mockData";
 import { useConfirm } from "@/components/edith/ConfirmDialog";
@@ -95,6 +95,7 @@ function Freelance() {
 
   const tabs = [
     { key: "discover", label: "Discover Jobs", count: visibleJobs.length },
+    { key: "ai-proposal", label: "Generate Proposal", count: undefined },
     { key: "proposals", label: "Proposals", count: proposals.length },
     { key: "progress", label: "In Progress", count: activeJobs.length },
     { key: "completed", label: "Completed", count: completedJobs.length },
@@ -153,7 +154,9 @@ function Freelance() {
               tab === t.key ? "text-foreground" : "text-muted-foreground hover:text-foreground"
             }`}>
             {t.label}
-            <span className="ml-2 rounded-full bg-muted px-1.5 py-0.5 text-[10px]">{t.count}</span>
+            {t.count !== undefined && (
+              <span className="ml-2 rounded-full bg-muted px-1.5 py-0.5 text-[10px]">{t.count}</span>
+            )}
             {tab === t.key && <span className="absolute inset-x-0 -bottom-px h-0.5 bg-gradient-primary" />}
           </button>
         ))}
@@ -172,6 +175,7 @@ function Freelance() {
           setBudgetFilter={setBudgetFilter}
         />
       )}
+      {tab === "ai-proposal" && <AIProposalArchitectTab />}
       {tab === "proposals" && <ProposalsTab />}
       {tab === "progress" && <KanbanTab onSelectJob={setSelectedActiveJob} />}
       {tab === "completed" && <CompletedTab />}
@@ -1460,6 +1464,340 @@ function AddManualTaskModal({ onClose }: { onClose: () => void }) {
           </div>
         </form>
 
+      </div>
+    </div>
+  );
+}
+
+function AIProposalArchitectTab() {
+  const [title, setTitle] = useState("");
+  const [category, setCategory] = useState("Web Dev");
+  const [platform, setPlatform] = useState("Upwork");
+  const [budget, setBudget] = useState("500");
+  const [duration, setDuration] = useState("5");
+  const [description, setDescription] = useState("");
+  const [tone, setTone] = useState("professional");
+  const [cvOption, setCvOption] = useState("full");
+  const [generating, setGenerating] = useState(false);
+  const [result, setResult] = useState<{
+    proposal: { draftText: string; bidAmount: number; deliveryDays: number; id: string };
+    insights: {
+      matchScore: number;
+      strengths: string[];
+      concerns: string[];
+      suggestedBid: number;
+      estimatedDays: number;
+      summary: string;
+      accuracyScore?: number;
+      accuracyExplanation?: string;
+    };
+    jobId: string;
+  } | null>(null);
+
+  const categories = ["Content", "Design", "Web Dev", "Video", "SEO", "Data", "Translation", "Voice", "Social Media", "VA", "AI Consulting", "E-Commerce"];
+  const platforms = ["Manual", "External", "Upwork", "Fiverr", "Freelancer", "Toptal", "Contra", "PeoplePerHour", "WeWorkRemotely", "RemoteOK"];
+  const tones = [
+    { value: "professional", label: "Professional (balanced & business-ready)" },
+    { value: "direct", label: "Direct (extremely short & response-driven)" },
+    { value: "technical", label: "Technical (spec-focused, details libraries & flow)" },
+    { value: "conversational", label: "Conversational (friendly & relational)" }
+  ];
+  const cvOptions = [
+    { value: "full", label: "Full Profile (General Full-Stack)" },
+    { value: "tech", label: "Technical focus (React, Drizzle, Electron)" },
+    { value: "experience", label: "Project experience focus (EDITH app)" }
+  ];
+
+  const handleGenerate = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!title.trim() || !description.trim()) {
+      toast.error("Please fill in the Job Title and Job Description.");
+      return;
+    }
+    const budgetNum = parseFloat(budget) || 100;
+    
+    setGenerating(true);
+    setResult(null);
+    try {
+      // 1. Create a manual job to register details and trigger dynamic AI scoring
+      const createRes = await api.freelance.createManualJob({
+        title: title.trim(),
+        category,
+        description: description.trim(),
+        budget: budgetNum,
+        platform
+      }) as any;
+
+      if (!createRes?.success || !createRes?.data?.id) {
+        throw new Error(createRes?.error?.message || "Failed to create manual job workspace.");
+      }
+
+      const newJob = createRes.data;
+
+      // 2. Generate a custom proposal for the created job
+      const propRes = await api.freelance.generateProposal(newJob.id, { tone, cvOption }) as any;
+      if (!propRes?.success || !propRes?.data) {
+        throw new Error(propRes?.error?.message || "Failed to generate AI proposal.");
+      }
+
+      setResult({
+        proposal: propRes.data,
+        insights: newJob.aiInsights || {
+          matchScore: 90,
+          strengths: ["Clean tech alignment"],
+          concerns: [],
+          suggestedBid: budgetNum,
+          estimatedDays: parseInt(duration),
+          summary: "Manual job analysis."
+        },
+        jobId: newJob.id
+      });
+      toast.success("AI Proposal & Job Analysis generated successfully!");
+    } catch (err: any) {
+      toast.error(err.message || "Proposal generation failed.");
+    } finally {
+      setGenerating(false);
+    }
+  };
+
+  const handleCopy = () => {
+    if (!result?.proposal?.draftText) return;
+    navigator.clipboard.writeText(result.proposal.draftText);
+    toast.success("Proposal copied to clipboard!");
+  };
+
+  return (
+    <div className="grid gap-6 lg:grid-cols-2">
+      {/* Left panel: Form */}
+      <div className="rounded-2xl border border-border/60 bg-gradient-card p-6 shadow-card space-y-4">
+        <div>
+          <h2 className="text-lg font-bold flex items-center gap-2">
+            <Sparkles className="h-5 w-5 text-primary" /> AI Proposal Architect
+          </h2>
+          <p className="text-xs text-muted-foreground mt-1">
+            Input arbitrary job requirements to run immediate AI matching analysis and draft an optimized proposal letter.
+          </p>
+        </div>
+
+        <form onSubmit={handleGenerate} className="space-y-4">
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="space-y-1.5">
+              <label className="text-xs font-semibold text-muted-foreground">Job Title</label>
+              <input 
+                placeholder="e.g. Full-Stack Developer for SaaS MVP"
+                className="w-full rounded-lg border border-border bg-background/40 px-3 py-2 text-sm outline-none focus:border-primary/60"
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                required
+              />
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-xs font-semibold text-muted-foreground">Category/Domain</label>
+              <select 
+                className="w-full rounded-lg border border-border bg-background/40 px-3 py-2 text-sm outline-none focus:border-primary/60"
+                value={category}
+                onChange={(e) => setCategory(e.target.value)}
+              >
+                {categories.map(c => <option key={c} value={c}>{c}</option>)}
+              </select>
+            </div>
+          </div>
+
+          <div className="grid gap-4 sm:grid-cols-3">
+            <div className="space-y-1.5">
+              <label className="text-xs font-semibold text-muted-foreground">Platform</label>
+              <select 
+                className="w-full rounded-lg border border-border bg-background/40 px-3 py-2 text-sm outline-none focus:border-primary/60"
+                value={platform}
+                onChange={(e) => setPlatform(e.target.value)}
+              >
+                {platforms.map(p => <option key={p} value={p}>{p}</option>)}
+              </select>
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-xs font-semibold text-muted-foreground">Budget ($)</label>
+              <input 
+                type="number"
+                placeholder="500"
+                className="w-full rounded-lg border border-border bg-background/40 px-3 py-2 text-sm outline-none focus:border-primary/60"
+                value={budget}
+                onChange={(e) => setBudget(e.target.value)}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-xs font-semibold text-muted-foreground">Duration (Days)</label>
+              <input 
+                type="number"
+                placeholder="7"
+                className="w-full rounded-lg border border-border bg-background/40 px-3 py-2 text-sm outline-none focus:border-primary/60"
+                value={duration}
+                onChange={(e) => setDuration(e.target.value)}
+              />
+            </div>
+          </div>
+
+          <div className="space-y-1.5">
+            <label className="text-xs font-semibold text-muted-foreground">Job Description / Requirements</label>
+            <textarea 
+              placeholder="Paste requirements copy here..."
+              rows={5}
+              className="w-full rounded-lg border border-border bg-background/40 px-3 py-2 text-sm outline-none focus:border-primary/60 resize-none"
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              required
+            />
+          </div>
+
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="space-y-1.5">
+              <label className="text-xs font-semibold text-muted-foreground">Proposal Tone</label>
+              <select 
+                className="w-full rounded-lg border border-border bg-background/40 px-3 py-2 text-sm outline-none focus:border-primary/60"
+                value={tone}
+                onChange={(e) => setTone(e.target.value)}
+              >
+                {tones.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
+              </select>
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-xs font-semibold text-muted-foreground">CV Context Profile</label>
+              <select 
+                className="w-full rounded-lg border border-border bg-background/40 px-3 py-2 text-sm outline-none focus:border-primary/60"
+                value={cvOption}
+                onChange={(e) => setCvOption(e.target.value)}
+              >
+                {cvOptions.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
+              </select>
+            </div>
+          </div>
+
+          <button 
+            type="submit"
+            disabled={generating}
+            className="w-full inline-flex items-center justify-center gap-1.5 rounded-lg bg-gradient-primary py-2.5 text-sm font-semibold text-primary-foreground shadow-glow hover:opacity-95 disabled:opacity-60"
+          >
+            {generating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+            {generating ? "Analyzing & Architecting..." : "Architect Proposal & Analyze Match"}
+          </button>
+        </form>
+      </div>
+
+      {/* Right panel: AI Outputs */}
+      <div className="space-y-6">
+        {!generating && !result && (
+          <div className="h-full flex flex-col items-center justify-center rounded-2xl border border-dashed border-border p-12 text-center bg-card/10 min-h-[400px]">
+            <FileText className="h-10 w-10 text-muted-foreground opacity-60 mb-3" />
+            <p className="text-sm font-medium">No proposal generated yet.</p>
+            <p className="text-xs text-muted-foreground mt-1 max-w-sm">
+              Fill out the job form on the left and click submit to trigger a DeepSeek audit match review and proposal draft.
+            </p>
+          </div>
+        )}
+
+        {generating && (
+          <div className="h-full flex flex-col items-center justify-center rounded-2xl border border-border/60 bg-gradient-card p-12 text-center min-h-[400px]">
+            <Loader2 className="h-8 w-8 text-primary animate-spin mb-3" />
+            <p className="text-sm font-semibold">Running AI Swarm Matching Analysis...</p>
+            <p className="text-xs text-muted-foreground mt-1 animate-pulse">
+              Evaluating title tags, calculating heuristics, and drafting pitch sequence
+            </p>
+          </div>
+        )}
+
+        {result && (
+          <div className="space-y-6 animate-fade-in">
+            {/* AI Job Analysis */}
+            <div className="rounded-2xl border border-border/60 bg-gradient-card p-5 shadow-card space-y-4">
+              <div className="flex items-center justify-between border-b border-border/20 pb-3">
+                <h3 className="text-sm font-bold text-foreground flex items-center gap-1.5">
+                  <Briefcase className="h-4 w-4 text-primary" /> Suitability & Match Analysis
+                </h3>
+                <div className="flex items-center gap-1.5">
+                  <span className="text-xs font-semibold text-muted-foreground">Accuracy:</span>
+                  <span className="text-xs font-bold text-emerald-400">
+                    {result.insights.accuracyScore ?? 85}%
+                  </span>
+                </div>
+              </div>
+
+              <div className="grid gap-4 sm:grid-cols-3">
+                <div className="rounded-lg border border-border bg-background/20 p-3 text-center">
+                  <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider block">Match Score</span>
+                  <span className="text-xl font-extrabold text-primary block mt-1">{result.insights.matchScore}%</span>
+                </div>
+                <div className="rounded-lg border border-border bg-background/20 p-3 text-center">
+                  <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider block">Suggested Bid</span>
+                  <span className="text-xl font-extrabold text-foreground block mt-1">${result.insights.suggestedBid}</span>
+                </div>
+                <div className="rounded-lg border border-border bg-background/20 p-3 text-center">
+                  <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider block">Est. Duration</span>
+                  <span className="text-xl font-extrabold text-foreground block mt-1">{result.insights.estimatedDays} Days</span>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider">AI Swarm Heuristic Insight</p>
+                <p className="text-xs text-foreground bg-background/25 rounded-md p-2.5 border border-border/40">
+                  {result.insights.accuracyExplanation || result.insights.summary}
+                </p>
+              </div>
+
+              {result.insights.strengths?.length > 0 && (
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <div className="space-y-1.5">
+                    <span className="text-[10px] uppercase font-bold text-emerald-500 tracking-wider">Strengths</span>
+                    <ul className="text-xs space-y-1.5 text-muted-foreground list-disc pl-4">
+                      {result.insights.strengths.map((s, idx) => <li key={idx}>{s}</li>)}
+                    </ul>
+                  </div>
+                  <div className="space-y-1.5">
+                    <span className="text-[10px] uppercase font-bold text-amber-500 tracking-wider">Concerns / Audits</span>
+                    <ul className="text-xs space-y-1.5 text-muted-foreground list-disc pl-4">
+                      {result.insights.concerns?.length > 0 
+                        ? result.insights.concerns.map((c, idx) => <li key={idx}>{c}</li>)
+                        : <li>No major delivery concerns identified.</li>
+                      }
+                    </ul>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Proposal Draft */}
+            <div className="rounded-2xl border border-border/60 bg-gradient-card p-5 shadow-card space-y-4">
+              <div className="flex items-center justify-between border-b border-border/20 pb-3">
+                <h3 className="text-sm font-bold text-foreground flex items-center gap-1.5">
+                  <FileText className="h-4 w-4 text-primary" /> Generated Proposal Letter
+                </h3>
+                <button 
+                  onClick={handleCopy}
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-border px-2.5 py-1 text-xs font-semibold hover:bg-card"
+                >
+                  <Copy className="h-3 w-3" /> Copy
+                </button>
+              </div>
+
+              <textarea 
+                className="w-full rounded-lg border border-border bg-background/40 px-3 py-2.5 text-xs font-mono outline-none focus:border-primary/60 leading-relaxed resize-none"
+                rows={12}
+                value={result.proposal.draftText}
+                readOnly
+              />
+
+              <div className="flex gap-2">
+                <button 
+                  onClick={() => {
+                    toast.success("Workspace synced! Job is active in your board.");
+                    syncFreelanceData();
+                  }}
+                  className="flex-1 inline-flex items-center justify-center gap-1.5 rounded-lg bg-gradient-primary py-2 text-xs font-bold text-primary-foreground shadow-glow hover:opacity-95"
+                >
+                  <Check className="h-3.5 w-3.5" /> Save Job to Active Board
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

@@ -161,7 +161,7 @@ export class JobDiscoveryService {
     };
   }
 
-  private async scoreJob(job: any) {
+  public async scoreJob(job: any) {
     const apiKey = process.env.OPENROUTER_API_KEY;
     const heuristic = this.calculateHeuristicAccuracy(job);
 

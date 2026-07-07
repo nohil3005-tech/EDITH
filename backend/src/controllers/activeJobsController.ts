@@ -178,7 +178,18 @@ export async function createManualJob(req: AuthRequest, res: Response): Promise<
   const userId = getCurrentUserId();
   const jobId = uuidv4();
   
-  // 1. Insert freelance job
+  // 1. Run dynamic AI scoring/insights
+  const { JobDiscoveryService } = await import('../services/freelance/JobDiscoveryService');
+  const discoverySvc = new JobDiscoveryService();
+  const aiInsights = await discoverySvc.scoreJob({
+    title,
+    description,
+    tags: [category],
+    budgetMin: budget,
+    budgetMax: budget
+  });
+
+  // 2. Insert freelance job
   const [job] = await db.insert(freelanceJobs).values({
     id: jobId,
     userId,
@@ -190,15 +201,8 @@ export async function createManualJob(req: AuthRequest, res: Response): Promise<
     budgetMax: budget,
     clientRating: 5.0,
     tags: [category],
-    aiScore: 95,
-    aiInsights: {
-      matchScore: 95,
-      strengths: ["Manually entered task"],
-      concerns: [],
-      suggestedBid: budget,
-      estimatedDays: 7,
-      summary: "Manual project entered directly by the user."
-    },
+    aiScore: aiInsights.matchScore ?? 95,
+    aiInsights,
     status: 'active',
   } as any).returning();
   
