@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <style>
+    body {
+      width: 280px;
+      font-family: system-ui, -apple-system, sans-serif;
+      background-color: #07070c;
+      color: #f4f4f5;
+      margin: 0;
+      padding: 16px;
+    }
+    .header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 12px;
+      border-bottom: 1px solid #27272a;
+      padding-bottom: 8px;
+    }
+    .title {
+      font-size: 14px;
+      font-weight: 700;
+      color: #6366f1;
+    }
+    .status {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 11px;
+      color: #a1a1aa;
+      margin-bottom: 16px;
+    }
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      background-color: #10b981;
+      border-radius: 50%;
+      box-shadow: 0 0 8px #10b981;
+    }
+    .section-title {
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: #71717a;
+      margin-bottom: 8px;
+    }
+    .btn {
+      display: block;
+      width: 100%;
+      background-color: #6366f1;
+      color: white;
+      border: none;
+      border-radius: 6px;
+      padding: 8px 12px;
+      font-size: 11px;
+      font-weight: 600;
+      cursor: pointer;
+      text-align: center;
+      transition: all 0.2s;
+    }
+    .btn:hover {
+      background-color: #4f46e5;
+    }
+    .btn-secondary {
+      background-color: #18181b;
+      border: 1px solid #27272a;
+      color: #e4e4e7;
+      margin-top: 8px;
+    }
+    .btn-secondary:hover {
+      background-color: #27272a;
+    }
+    .footer {
+      font-size: 9px;
+      color: #52525b;
+      text-align: center;
+      margin-top: 16px;
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <span style="font-size: 18px;">🌐</span>
+    <span class="title">EDITH Freelancer Bridge</span>
+  </div>
+
+  <div class="status">
+    <div class="status-dot"></div>
+    <span>Connected to local EDITH backend</span>
+  </div>
+
+  <div class="section-title">Manual Sync Controls</div>
+  <button id="btn-sync" class="btn">Trigger Upwork Sync</button>
+  <button id="btn-mock" class="btn btn-secondary">Simulate Proposal Acceptance</button>
+  <button id="btn-mock-jobs" class="btn btn-secondary">Simulate Discover Job Feed</button>
+
+  <div class="footer">
+    EDITH Bridge v1.0.0 — Always Running
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>

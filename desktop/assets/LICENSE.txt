@@ -1,0 +1,14 @@
+EDITH — Enhanced Digital Intelligence & Trading Hub
+Personal Use License
+
+Copyright (c) 2024
+
+This software is licensed for personal, single-user use only.
+All rights reserved.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED.
+
+Data Storage Notice:
+All your data is stored locally in %APPDATA%\EDITH\ on your computer.
+No data is sent to any server except AI API calls to OpenRouter (openrouter.ai)
+which require your personal API key.

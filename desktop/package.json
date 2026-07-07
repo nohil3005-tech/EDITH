@@ -1,0 +1,93 @@
+{
+  "name": "edith-desktop",
+  "version": "1.0.0",
+  "description": "EDITH — Enhanced Digital Intelligence & Trading Hub",
+  "main": "main.js",
+  "private": true,
+  "scripts": {
+    "start":   "electron .",
+    "dev":     "NODE_ENV=development electron .",
+    "pack":    "electron-builder --dir",
+    "dist":    "electron-builder --win --x64",
+    "dist:all":"electron-builder -mwl",
+    "postinstall": "electron-builder install-app-deps"
+  },
+  "dependencies": {},
+  "devDependencies": {
+    "electron":         "^31.0.0",
+    "electron-builder": "^24.13.3"
+  },
+  "build": {
+    "appId":       "com.edith.desktop",
+    "productName": "EDITH",
+    "copyright":   "Copyright © 2024",
+    "asar":        true,
+    "asarUnpack": [],
+    "directories": {
+      "buildResources": "assets",
+      "output":         "release"
+    },
+    "files": [
+      "main.js",
+      "preload.js",
+      "assets/**"
+    ],
+    "extraResources": [
+      {
+        "from": "backend",
+        "to":   "backend",
+        "filter": [
+          "**/*",
+          "!**/node_modules/**/*.ts",
+          "!**/node_modules/**/*.md",
+          "!**/node_modules/**/test/**",
+          "!**/node_modules/**/tests/**",
+          "!**/node_modules/**/test.js"
+        ]
+      },
+      {
+        "from": "frontend/dist",
+        "to":   "frontend/dist"
+      },
+      {
+        "from": ".env",
+        "to":   ".env"
+      }
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch":   ["x64"]
+        }
+      ],
+      "icon":            "assets/icon.ico",
+      "requestedExecutionLevel": "asInvoker"
+    },
+    "nsis": {
+      "oneClick":              false,
+      "allowToChangeInstallationDirectory": true,
+      "allowElevation":        true,
+      "installerIcon":         "assets/icon.ico",
+      "uninstallerIcon":       "assets/icon.ico",
+      "installerHeaderIcon":   "assets/icon.ico",
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName":          "EDITH",
+      "runAfterFinish":        true,
+      "deleteAppDataOnUninstall": false,
+      "license":               "LICENSE.txt",
+      "include":               "assets/installer.nsh"
+    },
+    "mac": {
+      "target":    "dmg",
+      "icon":      "assets/icon.icns",
+      "category":  "public.app-category.business"
+    },
+    "linux": {
+      "target": "AppImage",
+      "icon":   "assets/icon.png",
+      "category": "Office"
+    }
+  }
+}

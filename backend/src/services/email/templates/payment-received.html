@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Payment Received</title>
+<style>
+  body{font-family:'Segoe UI',Arial,sans-serif;background:#0f0f1a;color:#e2e8f0;margin:0;padding:0}
+  .wrapper{max-width:600px;margin:40px auto;background:#1a1a2e;border-radius:12px;overflow:hidden;border:1px solid #2d2d4a}
+  .header{background:linear-gradient(135deg,#f59e0b,#d97706);padding:40px 32px;text-align:center}
+  .header h1{margin:0;font-size:28px;color:#fff;font-weight:700}
+  .icon{font-size:64px;margin-bottom:16px}
+  .body{padding:32px}
+  .body p{line-height:1.7;color:#cbd5e1;margin:0 0 16px}
+  .amount-box{background:#12122a;border-radius:10px;padding:24px;text-align:center;margin:20px 0;border:1px solid #2d2d4a}
+  .amount-box .amount{font-size:40px;font-weight:800;color:#f59e0b}
+  .amount-box .label{font-size:13px;color:#64748b;margin-top:4px}
+  .footer{background:#12122a;padding:20px 32px;text-align:center;font-size:12px;color:#64748b;border-top:1px solid #2d2d4a}
+</style>
+</head>
+<body>
+<div class="wrapper">
+  <div class="header">
+    <div class="icon">💰</div>
+    <h1>Payment Received!</h1>
+  </div>
+  <div class="body">
+    <p>Hi <strong>{{clientName}}</strong>,</p>
+    <p>We've received your payment. Thank you!</p>
+    <div class="amount-box">
+      <div class="amount">${{amount}}</div>
+      <div class="label">Invoice {{invoiceNumber}} — Paid in Full</div>
+    </div>
+    <p>This is your payment confirmation. A receipt has been attached to this email.</p>
+    <p style="font-size:13px;color:#64748b">Please keep this email for your records.</p>
+  </div>
+  <div class="footer">
+    <p>EDITH – Enhanced Digital Intelligence &amp; Trading Hub</p>
+  </div>
+</div>
+</body>
+</html>

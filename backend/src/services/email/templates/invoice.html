@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Invoice</title>
+<style>
+  body{font-family:'Segoe UI',Arial,sans-serif;background:#f1f5f9;color:#1e293b;margin:0;padding:0}
+  .wrapper{max-width:640px;margin:40px auto;background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.08)}
+  .header{background:#0f172a;padding:32px;display:flex;justify-content:space-between;align-items:center}
+  .header h1{margin:0;color:#fff;font-size:24px;font-weight:800}
+  .header .inv-num{color:#94a3b8;font-size:13px;margin-top:4px}
+  .body{padding:32px}
+  .amount-box{background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:24px;margin:24px 0;text-align:center}
+  .amount-box .label{font-size:12px;color:#64748b;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:8px}
+  .amount-box .amount{font-size:42px;font-weight:800;color:#0f172a}
+  .meta-row{display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px solid #f1f5f9;font-size:14px}
+  .meta-row .label{color:#64748b}
+  .meta-row .value{font-weight:600;color:#0f172a}
+  .btn{display:block;background:#6366f1;color:#fff;text-decoration:none;padding:16px;border-radius:10px;font-weight:700;font-size:16px;text-align:center;margin:24px 0}
+  .footer{background:#f8fafc;padding:20px 32px;text-align:center;font-size:12px;color:#94a3b8;border-top:1px solid #e2e8f0}
+</style>
+</head>
+<body>
+<div class="wrapper">
+  <div class="header">
+    <div>
+      <h1>EDITH</h1>
+      <div class="inv-num">Invoice {{invoiceNumber}}</div>
+    </div>
+  </div>
+  <div class="body">
+    <p>Hi <strong>{{clientName}}</strong>,</p>
+    <p>Please find your invoice details below. Payment is due by <strong>{{dueDate}}</strong>.</p>
+    <div class="amount-box">
+      <div class="label">Amount Due</div>
+      <div class="amount">${{total}}</div>
+    </div>
+    <div class="meta-row">
+      <span class="label">Invoice Number</span>
+      <span class="value">{{invoiceNumber}}</span>
+    </div>
+    <div class="meta-row">
+      <span class="label">Due Date</span>
+      <span class="value">{{dueDate}}</span>
+    </div>
+    <a href="{{paymentLink}}" class="btn">Pay Now →</a>
+    <p style="font-size:13px;color:#64748b">If you have any questions about this invoice, please reply to this email.</p>
+  </div>
+  <div class="footer">
+    <p>EDITH – Enhanced Digital Intelligence &amp; Trading Hub</p>
+  </div>
+</div>
+</body>
+</html>

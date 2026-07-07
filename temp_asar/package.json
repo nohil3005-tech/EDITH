@@ -1,0 +1,8 @@
+{
+  "name": "edith-desktop",
+  "version": "1.0.0",
+  "description": "EDITH — Enhanced Digital Intelligence & Trading Hub",
+  "main": "main.js",
+  "private": true,
+  "dependencies": {}
+}
