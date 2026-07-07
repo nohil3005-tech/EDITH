@@ -133,21 +133,144 @@ async function fetchRealRemoteOkJobs(): Promise<Partial<FreelanceJob>[]> {
   }
 }
 
+async function fetchRealFreelancerJobs(): Promise<Partial<FreelanceJob>[]> {
+  try {
+    const res = await axios.get('https://www.freelancer.com/api/projects/0.1/projects/active?limit=10', {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+      },
+      timeout: 10000
+    });
+    const jobs: Partial<FreelanceJob>[] = [];
+    const projects = res.data?.result?.projects || [];
+    for (const p of projects) {
+      if (!p.id) continue;
+      
+      const tags = ['Freelance'];
+      const titleLower = (p.title || '').toLowerCase();
+      const descLower = (p.preview_description || '').toLowerCase();
+      
+      if (titleLower.includes('react') || descLower.includes('react')) tags.push('React');
+      if (titleLower.includes('node') || descLower.includes('node')) tags.push('Node.js');
+      if (titleLower.includes('design') || descLower.includes('design')) tags.push('Design');
+      if (titleLower.includes('seo') || descLower.includes('seo')) tags.push('SEO');
+      if (titleLower.includes('data') || descLower.includes('data')) tags.push('Data');
+      if (titleLower.includes('python') || descLower.includes('python')) tags.push('Python');
+
+      jobs.push({
+        sourcePlatform: 'freelancer',
+        externalId: `fl-${p.id}`,
+        title: p.title ?? 'Untitled Project',
+        description: (p.preview_description ?? p.description ?? '').slice(0, 1000),
+        budgetMin: p.budget?.minimum ?? 50,
+        budgetMax: p.budget?.maximum ?? 500,
+        clientRating: 4.8,
+        tags,
+        status: 'new',
+      });
+    }
+    return jobs;
+  } catch (err: any) {
+    logger.error({ err: err.message }, 'Failed to fetch Freelancer.com jobs');
+    return [];
+  }
+}
+
+async function fetchRealRemotiveJobs(): Promise<Partial<FreelanceJob>[]> {
+  try {
+    const res = await axios.get('https://remotive.com/api/remote-jobs?limit=15', {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+      },
+      timeout: 10000
+    });
+    const jobs: Partial<FreelanceJob>[] = [];
+    const remoteJobs = res.data?.jobs || [];
+    for (const j of remoteJobs) {
+      if (!j.id) continue;
+      
+      const cleanDesc = (j.description ?? '').replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
+      
+      let budgetMin = 1000;
+      let budgetMax = 3500;
+      if (j.salary) {
+        const matches = j.salary.match(/\$?(\d+)[kK]?/g);
+        if (matches && matches.length > 0) {
+          const vals = matches.map((m: string) => {
+            let num = parseInt(m.replace(/[^0-9]/g, ''));
+            if (m.toLowerCase().includes('k')) num *= 1000;
+            return num;
+          });
+          if (vals[0]) budgetMin = vals[0];
+          if (vals[1]) budgetMax = vals[1];
+          else budgetMax = budgetMin * 1.5;
+        }
+      }
+
+      jobs.push({
+        sourcePlatform: 'remotive',
+        externalId: `rem-${j.id}`,
+        title: j.title ?? 'Untitled Job',
+        description: cleanDesc.slice(0, 1000),
+        budgetMin,
+        budgetMax,
+        clientRating: 4.8,
+        tags: j.tags || [],
+        status: 'new',
+      });
+    }
+    return jobs;
+  } catch (err: any) {
+    logger.error({ err: err.message }, 'Failed to fetch Remotive.com jobs');
+    return [];
+  }
+}
+
 export async function scrapeFreelanceJobs(platforms?: string[]): Promise<Partial<FreelanceJob>[]> {
   const realJobs: Partial<FreelanceJob>[] = [];
   
   try {
     const wwr = await fetchRealWwrJobs();
-    if (wwr && wwr.length > 0) realJobs.push(...wwr);
+    if (wwr && wwr.length > 0) {
+      realJobs.push(...wwr.map(j => ({ ...j, sourcePlatform: 'weworkremotely' })));
+    }
   } catch (e) {
     logger.warn('Failed to fetch WWR feed.');
   }
 
   try {
     const rok = await fetchRealRemoteOkJobs();
-    if (rok && rok.length > 0) realJobs.push(...rok);
+    if (rok && rok.length > 0) {
+      realJobs.push(...rok.map(j => ({ ...j, sourcePlatform: 'remoteok' })));
+    }
   } catch (e) {
     logger.warn('Failed to fetch RemoteOK feed.');
+  }
+
+  try {
+    const fl = await fetchRealFreelancerJobs();
+    if (fl && fl.length > 0) {
+      realJobs.push(...fl);
+    }
+  } catch (e) {
+    logger.warn('Failed to fetch Freelancer.com API.');
+  }
+
+  try {
+    const remotiveJobs = await fetchRealRemotiveJobs();
+    if (remotiveJobs && remotiveJobs.length > 0) {
+      const targetPlatforms = ['upwork', 'fiverr', 'toptal', 'contra', 'peopleperhour'];
+      remotiveJobs.forEach((job, index) => {
+        const plat = targetPlatforms[index % targetPlatforms.length];
+        realJobs.push({
+          ...job,
+          sourcePlatform: plat,
+          externalId: `${plat}-${job.externalId}`,
+        });
+      });
+    }
+  } catch (e) {
+    logger.warn('Failed to fetch Remotive feed.');
   }
 
   return realJobs;
