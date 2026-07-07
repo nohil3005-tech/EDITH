@@ -327,7 +327,7 @@ export async function syncFilesFromBackend(): Promise<void> {
         dataUrl: `${BASE}/files/${f.id}/download?apiKey=${API_KEY}`,
       }));
       const store = useEdith.getState();
-      const uniqueFolders = Array.from(new Set([...store.folders, ...dbFiles.map(f => f.folder)]));
+      const uniqueFolders = Array.from(new Set([...store.folders, ...dbFiles.map((f: any) => f.folder)]));
       useEdith.setState({ files: dbFiles, folders: uniqueFolders });
     }
   } catch (err) {

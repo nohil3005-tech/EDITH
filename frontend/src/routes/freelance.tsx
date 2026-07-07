@@ -24,6 +24,8 @@ function PlatformBadge({ platform }: { platform: string }) {
     contra: "bg-indigo-500/10 text-indigo-400 border-indigo-500/20",
     peopleperhour: "bg-orange-500/10 text-orange-500 border-orange-500/20",
     freelancer: "bg-cyan-500/10 text-cyan-500 border-cyan-500/20",
+    weworkremotely: "bg-rose-500/10 text-rose-500 border-rose-500/20",
+    remoteok: "bg-violet-500/10 text-violet-400 border-violet-500/20",
   };
   const colorClass = colors[normalized] || "bg-muted text-muted-foreground border-border/40";
   return (
@@ -260,6 +262,8 @@ function DiscoverTab({
             <option>Contra</option>
             <option>PeoplePerHour</option>
             <option>Freelancer</option>
+            <option>WeWorkRemotely</option>
+            <option>RemoteOK</option>
           </select>
           <select 
             className="rounded-lg border border-border bg-background/40 px-3 py-2 text-sm"
@@ -1320,7 +1324,7 @@ function AddManualTaskModal({ onClose }: { onClose: () => void }) {
   const [submitting, setSubmitting] = useState(false);
 
   const categories = ["Content", "Design", "Web Dev", "Video", "SEO", "Data", "Translation", "Voice", "Social Media", "VA", "AI Consulting", "E-Commerce"];
-  const platforms = ["Manual", "External", "Upwork", "Fiverr", "Freelancer", "Toptal", "Contra", "PeoplePerHour"];
+  const platforms = ["Manual", "External", "Upwork", "Fiverr", "Freelancer", "Toptal", "Contra", "PeoplePerHour", "WeWorkRemotely", "RemoteOK"];
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
