@@ -19,7 +19,7 @@ const router = Router();
 
 // Validation Schemas
 const gate1Schema = z.object({
-  password: z.string().min(1),
+  codename: z.string().min(1),
 });
 
 const gate2Schema = z.object({
