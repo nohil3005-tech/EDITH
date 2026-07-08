@@ -27,7 +27,10 @@ const gate2Schema = z.object({
 });
 
 const googleLoginSchema = z.object({
-  idToken: z.string().min(1),
+  email: z.string().email(),
+  name: z.string().optional(),
+  supabaseId: z.string().min(1),
+  avatarUrl: z.string().nullable().optional(),
 });
 
 const updateProfileSchema = z.object({

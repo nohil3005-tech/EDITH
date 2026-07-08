@@ -433,7 +433,7 @@ export const api = {
   health:       { check:    () => get('/health') },
   auth: {
     getConfig:       ()              => get('/auth/config'),
-    gate1Verify:     (password: string) => post('/auth/gate1', { password }),
+    gate1Verify:     (codename: string) => post('/auth/gate1', { codename }),
     gate2Verify:     (codename: string) => post('/auth/gate2', { codename }),
     googleLogin:     (body: unknown) => post('/auth/google/login', body),
     profile:         ()              => get('/auth/profile'),
