@@ -17,7 +17,7 @@ export default defineConfig({
     // @ts-expect-error: routeRules is supported by Nitro but not exposed in @lovable.dev/vite-tanstack-config types
     routeRules: {
       "/api/**": {
-        proxy: "http://edith-api:4000/api/**",
+        proxy: `${process.env.VITE_API_BASE_URL ?? "http://localhost:3001"}/api/**`,
       },
     },
   },

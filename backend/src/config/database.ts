@@ -21,9 +21,10 @@ export function getDatabase(): PostgresJsDatabase<typeof schema> {
 
     logger.info('📂 Connecting to PostgreSQL database');
 
+    const isLocal = connectionString.includes('localhost') || connectionString.includes('127.0.0.1') || connectionString.includes('postgres');
     _client = postgres(connectionString, {
       max: 10,
-      ssl: { rejectUnauthorized: false }, // Required for secure cloud DB connections
+      ssl: isLocal ? false : { rejectUnauthorized: false }, // Required for secure cloud DB connections
       prepare: false, // Required for Neon serverless / pool connections
     });
 

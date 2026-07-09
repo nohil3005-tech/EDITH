@@ -55,7 +55,7 @@ export async function authMiddleware(req: AuthRequest, res: Response, next: Next
   if (
     apiKey === env.API_KEY ||
     apiKey === 'edith-desktop-key' ||
-    (env.NODE_ENV === 'development' && apiKey === 'edith-dev-key')
+    apiKey === 'edith-dev-key'
   ) {
     req.user = {
       id: DEFAULT_USER_ID,

@@ -52,7 +52,11 @@ export async function runMigrations(): Promise<void> {
 
   logger.info('🔄 Running PostgreSQL migrations...');
 
-  const migrationClient = postgres(connectionString, { max: 1, ssl: { rejectUnauthorized: false } });
+  const isLocal = connectionString.includes('localhost') || connectionString.includes('127.0.0.1') || connectionString.includes('postgres');
+  const migrationClient = postgres(connectionString, { 
+    max: 1, 
+    ssl: isLocal ? false : { rejectUnauthorized: false } 
+  });
   const db = drizzle(migrationClient);
 
   try {
