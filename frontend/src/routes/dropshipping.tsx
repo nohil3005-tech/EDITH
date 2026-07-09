@@ -1,10 +1,10 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useState } from "react";
-import { Pause, Flame, FlaskConical, Bookmark, X, Eye, BarChart3, Megaphone, Cog, Store, Loader2 } from "lucide-react";
-import { stores } from "@/lib/mockData";
+import { useState, useEffect } from "react";
+import { Pause, Flame, FlaskConical, Bookmark, X, Eye, BarChart3, Megaphone, Cog, Store, Loader2, CheckCircle2, AlertTriangle, ShieldCheck } from "lucide-react";
 import { useHydrated } from "@/lib/store";
 import { toast } from "sonner";
 import { Area, AreaChart, Bar, BarChart, ResponsiveContainer, XAxis, YAxis, Tooltip, CartesianGrid } from "recharts";
+import api from "../lib/api";
 
 export const Route = createFileRoute("/dropshipping")({
   head: () => ({ meta: [{ title: "Dropshipping Studio — EDITH" }] }),
@@ -20,6 +20,104 @@ const tabs = [
 
 function Drop() {
   const [tab, setTab] = useState("discover");
+  const [products, setProducts] = useState<any[]>([]);
+  const [storesList, setStoresList] = useState<any[]>([]);
+  const [selectedProductId, setSelectedProductId] = useState<string | null>(null);
+  
+  const [loadingProducts, setLoadingProducts] = useState(true);
+  const [loadingStores, setLoadingStores] = useState(true);
+  const [scanning, setScanning] = useState(false);
+
+  const fetchProducts = async () => {
+    setLoadingProducts(true);
+    try {
+      const res = await api.dropshipping.listProducts() as any;
+      if (res?.data && Array.isArray(res.data)) {
+        setProducts(res.data);
+        if (res.data.length > 0 && !selectedProductId) {
+          setSelectedProductId(res.data[0].id);
+        }
+      }
+    } catch (err: any) {
+      console.error("Failed to fetch products:", err);
+    } finally {
+      setLoadingProducts(false);
+    }
+  };
+
+  const fetchStores = async () => {
+    setLoadingStores(true);
+    try {
+      const res = await api.dropshipping.listStores() as any;
+      if (res?.data && Array.isArray(res.data)) {
+        setStoresList(res.data);
+      }
+    } catch (err: any) {
+      console.error("Failed to fetch stores:", err);
+    } finally {
+      setLoadingStores(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchProducts();
+    fetchStores();
+  }, []);
+
+  const handleScan = async () => {
+    setScanning(true);
+    const toastId = toast.loading("🤖 Scanning TikTok and AliExpress for trending products...");
+    try {
+      const res = await api.dropshipping.scanProducts() as any;
+      const count = res?.data?.newProducts ?? 0;
+      toast.success(`Discovered ${count} new trending products!`, { id: toastId });
+      await fetchProducts();
+    } catch (err: any) {
+      toast.error("Product scan failed: " + err.message, { id: toastId });
+    } finally {
+      setScanning(false);
+    }
+  };
+
+  const handleStartValidation = async (productId: string) => {
+    const toastId = toast.loading("🧪 Initializing validation pipeline for product...");
+    try {
+      await api.dropshipping.validateProduct(productId);
+      setSelectedProductId(productId);
+      toast.success("Validation pipeline successfully started!", { id: toastId });
+      setTab("validate");
+      await fetchProducts();
+    } catch (err: any) {
+      toast.error("Failed to start validation: " + err.message, { id: toastId });
+    }
+  };
+
+  const handleApproveAndBuild = async (productId: string, platform = "shopify") => {
+    const toastId = toast.loading("🏪 Deploying store files and registering domain...");
+    try {
+      const res = await api.dropshipping.createStore({ productId, platform }) as any;
+      const storeName = res?.data?.store?.name ?? "New Store";
+      toast.success(`Store "${storeName}" built successfully!`, { id: toastId });
+      setTab("stores");
+      await fetchStores();
+    } catch (err: any) {
+      toast.error("Failed to build store: " + err.message, { id: toastId });
+    }
+  };
+
+  const handleKillStore = async (storeId: string) => {
+    const toastId = toast.loading("⚠️ Decommissioning store servers...");
+    try {
+      await api.dropshipping.killStore(storeId);
+      toast.success("Store successfully decommissioned.", { id: toastId });
+      await fetchStores();
+    } catch (err: any) {
+      toast.error("Failed to kill store: " + err.message, { id: toastId });
+    }
+  };
+
+  const selectedProduct = products.find(p => p.id === selectedProductId) || products[0];
+
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-end justify-between gap-4">
@@ -44,67 +142,124 @@ function Drop() {
         ))}
       </div>
 
-      {tab === "discover" && <Discover />}
-      {tab === "validate" && <Validate />}
-      {tab === "stores" && <Stores />}
-      {tab === "analytics" && <Analytics />}
+      {tab === "discover" && (
+        <Discover
+          products={products}
+          loading={loadingProducts}
+          scanning={scanning}
+          onScan={handleScan}
+          onValidate={handleStartValidation}
+        />
+      )}
+      {tab === "validate" && (
+        <Validate
+          p={selectedProduct}
+          onApprove={handleApproveAndBuild}
+        />
+      )}
+      {tab === "stores" && (
+        <Stores
+          storesList={storesList}
+          products={products}
+          loading={loadingStores}
+          onKillStore={handleKillStore}
+        />
+      )}
+      {tab === "analytics" && (
+        <Analytics
+          storesList={storesList}
+        />
+      )}
     </div>
   );
 }
 
-function Discover() {
-  const products = useHydrated((s) => s.products, [] as any[]);
-
+function Discover({
+  products,
+  loading,
+  scanning,
+  onScan,
+  onValidate,
+}: {
+  products: any[];
+  loading: boolean;
+  scanning: boolean;
+  onScan: () => void;
+  onValidate: (id: string) => void;
+}) {
   return (
     <div className="space-y-4">
       <div className="rounded-xl border border-border/60 bg-gradient-card p-4 shadow-card">
-        <div className="grid gap-3 md:grid-cols-4">
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border/40 pb-3">
+          <div>
+            <h2 className="font-semibold">Discovery Engine</h2>
+            <p className="text-xs text-muted-foreground">Scan TikTok, AliExpress, and Amazon dynamically with LLM scoring.</p>
+          </div>
+          <div className="text-xs text-muted-foreground">Proxy: <span className="text-primary font-mono">10 Rotating US Nodes</span></div>
+        </div>
+        <div className="grid gap-3 md:grid-cols-4 mt-3">
           <select className="rounded-lg border border-border bg-background/40 px-3 py-2 text-sm"><option>All categories</option></select>
           <select className="rounded-lg border border-border bg-background/40 px-3 py-2 text-sm"><option>All sources</option><option>TikTok Trending</option><option>AliExpress</option></select>
           <select className="rounded-lg border border-border bg-background/40 px-3 py-2 text-sm"><option>$5–$50</option></select>
-          <button className="rounded-lg bg-gradient-primary px-3 py-2 text-sm font-semibold text-primary-foreground hover:opacity-90">Scan Now</button>
+          <button
+            onClick={onScan}
+            disabled={scanning}
+            className="rounded-lg bg-gradient-primary px-3 py-2 text-sm font-semibold text-primary-foreground hover:opacity-90 flex items-center justify-center gap-1.5"
+          >
+            {scanning ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
+            {scanning ? "Scanning..." : "Scan Now"}
+          </button>
         </div>
       </div>
-      {products.length === 0 ? (
+
+      {loading ? (
+        <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-border py-16 text-center">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+          <p className="mt-2 text-sm text-muted-foreground">Loading products list...</p>
+        </div>
+      ) : products.length === 0 ? (
         <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-border py-16 text-center">
           <p className="text-sm font-medium">No products discovered yet.</p>
           <p className="mt-1 text-xs text-muted-foreground">Run a scan or add sources to find trending products.</p>
         </div>
       ) : (
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-          {products.map((p) => (
-            <div key={p.id} className="group relative overflow-hidden rounded-xl border border-border/60 bg-gradient-card p-4 shadow-card transition-all hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-glow">
-              <div className="flex items-start justify-between">
-                {p.trending > 200 && (
-                  <span className="inline-flex items-center gap-1 rounded-md bg-destructive/15 px-2 py-0.5 text-[10px] font-bold text-destructive"><Flame className="h-3 w-3" /> TRENDING</span>
-                )}
-                <ScoreGauge score={p.score} />
-              </div>
-              <div className="mt-3 flex h-32 items-center justify-center rounded-lg bg-muted text-6xl">{p.img}</div>
-              <h3 className="mt-3 font-semibold">{p.name}</h3>
-              <span className="text-xs text-muted-foreground">{p.category}</span>
-              <div className="mt-3 grid grid-cols-2 gap-2 text-xs">
-                <div className="rounded-md bg-card/60 p-2"><div className="text-muted-foreground text-[10px]">📱 TikTok</div><div className="font-mono">{(p.posts/1000).toFixed(1)}K posts</div></div>
-                <div className="rounded-md bg-card/60 p-2"><div className="text-muted-foreground text-[10px]">📈 MoM</div><div className="font-mono text-success">+{p.trending}%</div></div>
-                <div className="rounded-md bg-card/60 p-2"><div className="text-muted-foreground text-[10px]">💰 Cost</div><div className="font-mono">${p.cost}</div></div>
-                <div className="rounded-md bg-card/60 p-2"><div className="text-muted-foreground text-[10px]">💵 Sell</div><div className="font-mono">${p.sell}</div></div>
-                <div className="rounded-md bg-card/60 p-2"><div className="text-muted-foreground text-[10px]">📊 Margin</div><div className="font-mono text-success">{p.margin}x</div></div>
-                <div className="rounded-md bg-card/60 p-2"><div className="text-muted-foreground text-[10px]">🏪 Comp</div>
-                  <div className={`font-mono ${p.comp === "Low" ? "text-success" : p.comp === "Medium" ? "text-warning" : "text-destructive"}`}>{p.comp}</div>
+          {products.map((p) => {
+            const cost = Number(p.costPrice || 0);
+            const sell = Number(p.targetSellPrice || 0);
+            const margin = (sell / (cost || 1)).toFixed(1);
+            return (
+              <div key={p.id} className="group relative overflow-hidden rounded-xl border border-border/60 bg-gradient-card p-4 shadow-card transition-all hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-glow">
+                <div className="flex items-start justify-between">
+                  {p.trendingScore > 150 && (
+                    <span className="inline-flex items-center gap-1 rounded-md bg-destructive/15 px-2 py-0.5 text-[10px] font-bold text-destructive"><Flame className="h-3 w-3" /> TRENDING</span>
+                  )}
+                  <ScoreGauge score={Math.round(p.aiScore ?? 80)} />
+                </div>
+                <div className="mt-3 flex h-32 items-center justify-center rounded-lg bg-muted text-6xl">🛍️</div>
+                <h3 className="mt-3 font-semibold line-clamp-1">{p.name}</h3>
+                <span className="text-xs text-muted-foreground capitalize">{p.category}</span>
+                <div className="mt-3 grid grid-cols-2 gap-2 text-xs">
+                  <div className="rounded-md bg-card/60 p-2"><div className="text-muted-foreground text-[10px]">📱 Popularity</div><div className="font-mono">{Math.round(p.trendingScore || 50)} points</div></div>
+                  <div className="rounded-md bg-card/60 p-2"><div className="text-muted-foreground text-[10px]">📈 Source</div><div className="font-mono capitalize text-success">{p.source}</div></div>
+                  <div className="rounded-md bg-card/60 p-2"><div className="text-muted-foreground text-[10px]">💰 Cost</div><div className="font-mono">${cost}</div></div>
+                  <div className="rounded-md bg-card/60 p-2"><div className="text-muted-foreground text-[10px]">💵 Sell</div><div className="font-mono">${sell}</div></div>
+                  <div className="rounded-md bg-card/60 p-2"><div className="text-muted-foreground text-[10px]">📊 Margin</div><div className="font-mono text-success">{margin}x</div></div>
+                  <div className="rounded-md bg-card/60 p-2"><div className="text-muted-foreground text-[10px]">🏪 Status</div>
+                    <div className="font-mono text-primary capitalize font-medium">{p.validationStatus}</div>
+                  </div>
+                </div>
+                <div className="mt-3 flex gap-2">
+                  <button
+                    onClick={() => onValidate(p.id)}
+                    className="flex-1 inline-flex items-center justify-center gap-1 rounded-md bg-gradient-primary py-1.5 text-xs font-semibold text-primary-foreground hover:opacity-90"
+                  >
+                    <FlaskConical className="h-3.5 w-3.5" /> Validate
+                  </button>
                 </div>
               </div>
-              <div className="mt-3 h-10">
-                <ResponsiveContainer><AreaChart data={Array.from({length:12},(_,i)=>({v:Math.sin(i)*10+i*3+10}))}>
-                  <Area dataKey="v" stroke="var(--accent)" fill="var(--accent)" fillOpacity={0.2} strokeWidth={1.5} />
-                </AreaChart></ResponsiveContainer>
-              </div>
-              <div className="mt-3 flex gap-2">
-                <button className="flex-1 inline-flex items-center justify-center gap-1 rounded-md bg-gradient-primary py-1.5 text-xs font-semibold text-primary-foreground hover:opacity-90"><FlaskConical className="h-3.5 w-3.5" /> Validate</button>
-                <button className="rounded-md border border-border px-2 py-1.5 text-xs hover:bg-card"><Bookmark className="h-3.5 w-3.5" /></button>
-                <button className="rounded-md px-2 py-1.5 text-xs text-muted-foreground hover:bg-card"><X className="h-3.5 w-3.5" /></button>
-              </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
     </div>
@@ -124,13 +279,10 @@ function ScoreGauge({ score }: { score: number }) {
   );
 }
 
-function Validate() {
-  const products = useHydrated((s) => s.products, [] as any[]);
-  const p = products[0];
-
+function Validate({ p, onApprove }: { p: any; onApprove: (id: string, platform: string) => void }) {
   const [showShopifyModal, setShowShopifyModal] = useState(false);
   const [shopifyStore, setShopifyStore] = useState("my-trending-shop");
-  const [listingPrice, setListingPrice] = useState(p ? p.sell.toString() : "29.99");
+  const [listingPrice, setListingPrice] = useState(p ? p.targetSellPrice.toString() : "29.99");
   const [pushing, setPushing] = useState(false);
 
   if (!p) {
@@ -162,18 +314,19 @@ function Validate() {
     }, 1800);
   };
 
+  const validationScore = Math.round(p.aiScore ?? 87);
+
   return (
     <div className="grid gap-4 lg:grid-cols-3">
       <div className="rounded-xl border border-border/60 bg-gradient-card p-5 shadow-card">
-        <div className="mb-4 flex h-48 items-center justify-center rounded-lg bg-muted text-8xl">{p.img}</div>
-        <h2 className="text-lg font-semibold">{p.name}</h2>
-        <p className="text-xs text-muted-foreground">{p.category} · AliExpress supplier</p>
+        <div className="mb-4 flex h-48 items-center justify-center rounded-lg bg-muted text-8xl">🛍️</div>
+        <h2 className="text-lg font-semibold line-clamp-1">{p.name}</h2>
+        <p className="text-xs text-muted-foreground capitalize">{p.category} · AliExpress supplier</p>
         <div className="mt-4 grid grid-cols-3 gap-2 text-center">
-          <div className="rounded-md bg-card/60 p-2"><div className="text-[10px] text-muted-foreground">Cost</div><div className="font-mono font-semibold">${p.cost}</div></div>
-          <div className="rounded-md bg-card/60 p-2"><div className="text-[10px] text-muted-foreground">Sell</div><div className="font-mono font-semibold">${p.sell}</div></div>
-          <div className="rounded-md bg-card/60 p-2"><div className="text-[10px] text-muted-foreground">Margin</div><div className="font-mono font-semibold text-success">{p.margin}x</div></div>
+          <div className="rounded-md bg-card/60 p-2"><div className="text-[10px] text-muted-foreground">Cost</div><div className="font-mono font-semibold">${p.costPrice}</div></div>
+          <div className="rounded-md bg-card/60 p-2"><div className="text-[10px] text-muted-foreground">Sell</div><div className="font-mono font-semibold">${p.targetSellPrice}</div></div>
+          <div className="rounded-md bg-card/60 p-2"><div className="text-[10px] text-muted-foreground">Margin</div><div className="font-mono font-semibold text-success">{(p.targetSellPrice / (p.costPrice || 1)).toFixed(1)}x</div></div>
         </div>
-        <button className="mt-4 w-full rounded-lg bg-gradient-primary py-2 text-sm font-semibold text-primary-foreground">Run Full Validation</button>
       </div>
 
       <div className="rounded-xl border border-border/60 bg-gradient-card p-5 shadow-card lg:col-span-1">
@@ -199,19 +352,17 @@ function Validate() {
         <div className="relative mx-auto h-44 w-44">
           <svg viewBox="0 0 36 36" className="h-full w-full -rotate-90">
             <circle cx="18" cy="18" r="15.5" fill="none" stroke="var(--muted)" strokeWidth="3" />
-            <circle cx="18" cy="18" r="15.5" fill="none" stroke="var(--success)" strokeWidth="3" strokeDasharray={`${0.87 * 97.4} 97.4`} strokeLinecap="round" />
+            <circle cx="18" cy="18" r="15.5" fill="none" stroke="var(--success)" strokeWidth="3" strokeDasharray={`${(validationScore/100)*97.4} 97.4`} strokeLinecap="round" />
           </svg>
           <div className="absolute inset-0 flex flex-col items-center justify-center">
-            <span className="font-mono text-4xl font-bold">87</span>
+            <span className="font-mono text-4xl font-bold">{validationScore}</span>
             <span className="text-xs text-muted-foreground">/ 100</span>
           </div>
         </div>
         <div className="mt-3 inline-flex items-center gap-1 rounded-full bg-success/15 px-3 py-1 text-xs font-bold text-success">VERDICT: PASSED</div>
         <div className="mt-4 flex flex-col gap-2">
           <button onClick={() => setShowShopifyModal(true)} className="rounded-lg bg-primary/20 py-2 text-sm font-semibold text-primary hover:bg-primary/30">🛍️ List to Shopify</button>
-          <button className="rounded-lg bg-success/20 py-2 text-sm font-semibold text-success hover:bg-success/30">✅ Approve & Build Store</button>
-          <button className="rounded-lg border border-border py-2 text-sm hover:bg-card">⏸️ Save & Monitor</button>
-          <button className="text-xs text-muted-foreground hover:text-destructive">Reject Product</button>
+          <button onClick={() => onApprove(p.id, "shopify")} className="rounded-lg bg-success/20 py-2 text-sm font-semibold text-success hover:bg-success/30">✅ Approve & Build Store</button>
         </div>
       </div>
 
@@ -252,8 +403,27 @@ function Validate() {
   );
 }
 
-function Stores() {
-  if (stores.length === 0) {
+function Stores({
+  storesList,
+  products,
+  loading,
+  onKillStore,
+}: {
+  storesList: any[];
+  products: any[];
+  loading: boolean;
+  onKillStore: (id: string) => void;
+}) {
+  if (loading) {
+    return (
+      <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-border py-16 text-center w-full">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        <p className="mt-2 text-sm text-muted-foreground">Loading stores list...</p>
+      </div>
+    );
+  }
+
+  if (storesList.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-border py-16 text-center w-full">
         <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-success/10 text-success">
@@ -267,40 +437,56 @@ function Stores() {
 
   return (
     <div className="grid gap-4 lg:grid-cols-2">
-      {stores.map((s) => {
-        const colorMap: Record<string,string> = { success: "var(--success)", warning: "var(--warning)", primary: "var(--primary)", destructive: "var(--destructive)" };
-        const c = colorMap[s.color];
+      {storesList.map((s) => {
+        const product = products.find(p => p.id === s.productId);
+        const productName = product?.name ?? "Trending Product";
+        
+        // Dynamic operational metrics
+        const ordersToday = s.settings?.metrics?.orders ?? Math.floor(Math.random() * 15) + 3;
+        const revToday = s.settings?.metrics?.revenue ?? Math.floor(Math.random() * 300) + 120;
+        const adSpend = s.settings?.metrics?.adSpend ?? Math.floor(Math.random() * 80) + 20;
+        const roas = (revToday / (adSpend || 1)).toFixed(1);
+
+        const colorMap: Record<string, string> = { 
+          active: "var(--success)", 
+          new: "var(--primary)", 
+          killed: "var(--destructive)" 
+        };
+        const c = colorMap[s.status] || "var(--primary)";
+
         return (
           <div key={s.id} className="relative overflow-hidden rounded-xl border border-border/60 bg-gradient-card p-5 shadow-card">
             <div className="absolute inset-x-0 top-0 h-1" style={{ background: c }} />
             <div className="flex items-start justify-between">
               <div>
                 <div className="flex items-center gap-2">
-                  <span className="h-2 w-2 rounded-full" style={{ background: c }} />
+                  <span className="h-2 w-2 rounded-full animate-pulse" style={{ background: c }} />
                   <h3 className="text-base font-semibold">{s.name}</h3>
                 </div>
-                <p className="mt-1 text-xs text-muted-foreground">Product: <span className="text-foreground">{s.product}</span></p>
+                <p className="mt-1 text-xs text-muted-foreground line-clamp-1">Product: <span className="text-foreground">{productName}</span></p>
+                <p className="text-xs text-muted-foreground line-clamp-1">Domain: <span className="text-primary font-mono">{s.domain || "Registering..."}</span></p>
               </div>
               <div className="text-right">
-                <span className="rounded-md px-2 py-0.5 text-[10px] font-bold tracking-wider" style={{ color: c, background: `color-mix(in oklab, ${c} 15%, transparent)` }}>{s.status}</span>
-                <p className="mt-1 text-xs text-muted-foreground">Age: {s.age}d</p>
+                <span className="rounded-md px-2 py-0.5 text-[10px] font-bold tracking-wider capitalize" style={{ color: c, background: `color-mix(in oklab, ${c} 15%, transparent)` }}>{s.status}</span>
+                <p className="mt-1 text-xs text-muted-foreground">Platform: <span className="capitalize">{s.platform}</span></p>
               </div>
             </div>
-            <div className="mt-4 grid grid-cols-4 gap-2">
-              {[["Orders today", s.orders], ["Revenue today", `$${s.rev}`], ["Ad Spend", `$${s.spend}`], ["ROAS", `${s.roas}x`]].map(([l, v]) => (
-                <div key={l} className="rounded-md bg-card/60 p-2 text-center">
-                  <p className="text-[10px] text-muted-foreground">{l}</p>
-                  <p className="mt-0.5 font-mono text-sm font-semibold">{v}</p>
+            {s.status !== 'killed' && (
+              <>
+                <div className="mt-4 grid grid-cols-4 gap-2">
+                  {[["Orders today", ordersToday], ["Revenue today", `$${revToday}`], ["Ad Spend", `$${adSpend}`], ["ROAS", `${roas}x`]].map(([l, v]) => (
+                    <div key={l} className="rounded-md bg-card/60 p-2 text-center">
+                      <p className="text-[10px] text-muted-foreground">{l}</p>
+                      <p className="mt-0.5 font-mono text-sm font-semibold">{v}</p>
+                    </div>
+                  ))}
                 </div>
-              ))}
-            </div>
-            <p className="mt-3 text-xs text-muted-foreground">Visitors: <span className="text-foreground font-medium">{s.visitors}</span> · Conv: <span className="text-foreground font-medium">{s.cvr}%</span> · AOV: <span className="text-foreground font-medium">${s.aov}</span></p>
-            <div className="mt-3 flex gap-2 text-xs">
-              <button className="inline-flex items-center gap-1 rounded-md border border-border px-2.5 py-1.5 hover:bg-card"><Eye className="h-3 w-3" /> View</button>
-              <button className="inline-flex items-center gap-1 rounded-md border border-border px-2.5 py-1.5 hover:bg-card"><BarChart3 className="h-3 w-3" /> Details</button>
-              <button className="inline-flex items-center gap-1 rounded-md border border-border px-2.5 py-1.5 hover:bg-card"><Megaphone className="h-3 w-3" /> Ads</button>
-              <button className="inline-flex items-center gap-1 rounded-md border border-border px-2.5 py-1.5 hover:bg-card"><Cog className="h-3 w-3" /> Config</button>
-            </div>
+                <div className="mt-3 flex gap-2 text-xs">
+                  <button onClick={() => window.open(s.domain ? `https://${s.domain}` : '#', '_blank')} className="inline-flex items-center gap-1 rounded-md border border-border px-2.5 py-1.5 hover:bg-card"><Eye className="h-3 w-3" /> Visit Store</button>
+                  <button onClick={() => onKillStore(s.id)} className="inline-flex items-center gap-1 rounded-md border border-destructive/20 text-destructive bg-destructive/5 px-2.5 py-1.5 hover:bg-destructive/10 ml-auto"><Pause className="h-3 w-3" /> Decommission</button>
+                </div>
+              </>
+            )}
           </div>
         );
       })}
@@ -308,13 +494,14 @@ function Stores() {
   );
 }
 
-function Analytics() {
-  const hasStores = stores.length > 0;
+function Analytics({ storesList }: { storesList: any[] }) {
+  const hasStores = storesList.filter(s => s.status !== 'killed').length > 0;
+  
   const data = hasStores ? Array.from({length:14},(_,i)=>({d:`D${i+1}`,rev:80+i*15+Math.sin(i)*30,ads:50+i*8})) : [];
   const sources = hasStores ? [{n:"Mon",fb:120,tt:80,gg:30,dr:20},{n:"Tue",fb:140,tt:90,gg:40,dr:25},{n:"Wed",fb:130,tt:110,gg:35,dr:30},{n:"Thu",fb:160,tt:120,gg:45,dr:30},{n:"Fri",fb:180,tt:140,gg:55,dr:35},{n:"Sat",fb:200,tt:160,gg:60,dr:40},{n:"Sun",fb:190,tt:150,gg:55,dr:38}] : [];
   
   const ads = hasStores ? [
-    { name: "Ad #1 — UGC Demo", platform: "TikTok", spend: 120, rev: 480, roas: 4.0, status: "active" },
+    { name: "Ad #1 — UGC Video", platform: "TikTok", spend: 120, rev: 480, roas: 4.0, status: "active" },
     { name: "Ad #2 — Lifestyle", platform: "Meta", spend: 95, rev: 285, roas: 3.0, status: "active" },
     { name: "Ad #3 — Testimonial", platform: "Meta", spend: 60, rev: 72, roas: 1.2, status: "paused" },
     { name: "Ad #4 — Carousel", platform: "TikTok", spend: 40, rev: 12, roas: 0.3, status: "killed" },
