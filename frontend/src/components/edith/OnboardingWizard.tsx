@@ -69,7 +69,7 @@ export function OnboardingWizard() {
       body: (
         <div className="space-y-2">
           {["Auto-scan jobs", "Auto-scan products", "Auto-generate proposals"].map((k) => (
-            <ToggleRow key={k} label={k} onToggle={(v) => setAuto(k, v)} defaultOn />
+            <ToggleRow key={k} label={k} onToggle={(v) => setAuto(k, v)} />
           ))}
         </div>
       ),

@@ -37,7 +37,7 @@ export class AutomationService {
         prefs = user.preferences as Record<string, boolean>;
       }
 
-      const autoPropose = prefs['Auto-generate proposals'] !== false;
+      const autoPropose = prefs['Auto-generate proposals'] === true;
       if (!autoPropose) return;
 
       logger.info('🤖 Running EDITH Autonomous Freelance Automation Loop...');

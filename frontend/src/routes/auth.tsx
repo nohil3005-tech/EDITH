@@ -5,7 +5,6 @@ import { useAuth } from "@/hooks/useAuth";
 import { Hexagon, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { StarryCanvas } from "@/components/edith/Gates";
-import api from "@/lib/api";
 
 export const Route = createFileRoute("/auth")({
   head: () => ({ meta: [{ title: "Sign in — EDITH" }] }),
@@ -15,17 +14,7 @@ export const Route = createFileRoute("/auth")({
 function AuthPage() {
   const { user, loading } = useAuth();
   const navigate = useNavigate();
-  const [codename, setCodename] = useState("");
-  const [codenameVerified, setCodenameVerified] = useState(false);
-  const [codenameError, setCodenameError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-
-  useEffect(() => {
-    if (typeof window !== "undefined") {
-      const verified = localStorage.getItem("codename_verified") === "true";
-      setCodenameVerified(verified);
-    }
-  }, []);
 
   useEffect(() => {
     if (!loading && user) navigate({ to: "/" });
@@ -47,89 +36,7 @@ function AuthPage() {
     }
   };
 
-  const handleCodenameSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setCodenameError(null);
-    setBusy(true);
-    try {
-      const res = await api.auth.gate1Verify(codename) as any;
-      if (res?.data?.token) {
-        localStorage.setItem("codename_verified", "true");
-        setCodenameVerified(true);
-        toast.success("Identity verified");
-      }
-    } catch (err: any) {
-      setCodenameError("The stars do not recognize you");
-    } finally {
-      setBusy(false);
-    }
-  };
-
   const isMobile = typeof window !== 'undefined' && (window.location.pathname.startsWith('/mobile') || window.innerWidth < 768);
-
-  if (!codenameVerified) {
-    if (codenameError) {
-      return (
-        <div className="fixed inset-0 z-50 flex flex-col items-center justify-center px-4 font-sans text-center">
-          <StarryCanvas isMobile={isMobile} />
-          <div className="max-w-md space-y-6 animate-fade-in">
-            <h1 className={`text-3xl font-extralight tracking-widest leading-relaxed font-mono ${isMobile ? "text-neutral-200" : "text-indigo-200/90"}`}>
-              {codenameError}
-            </h1>
-            <p className={`text-sm font-light italic ${isMobile ? "text-neutral-500" : "text-indigo-400/60"}`}>
-              "We walked the galactic dust, but the cosmos was silent."
-            </p>
-            <button
-              onClick={() => {
-                setCodenameError(null);
-                setCodename("");
-              }}
-              className={`inline-flex items-center justify-center rounded-lg px-6 py-2.5 text-sm font-medium transition-all active:scale-[0.97] ${isMobile ? "border border-neutral-800 bg-[#121216]/50 text-white hover:bg-neutral-800" : "border border-indigo-500/30 bg-indigo-500/10 text-indigo-200 hover:bg-indigo-500/25"}`}
-            >
-              Seek Entry Again
-            </button>
-          </div>
-        </div>
-      );
-    }
-
-    return (
-      <div className="fixed inset-0 z-50 flex items-center justify-center px-4 font-sans">
-        <StarryCanvas isMobile={isMobile} />
-        <div className={`w-full max-w-md rounded-2xl border p-8 backdrop-blur-md ${isMobile ? "border-neutral-850 bg-black/80 shadow-xl" : "border-white/5 bg-black/40 shadow-[0_0_60px_rgba(0,0,0,0.6)]"}`}>
-          <form onSubmit={handleCodenameSubmit} className="space-y-8">
-            <div className="text-center space-y-2">
-              <h1 className={`text-2xl font-light tracking-widest font-mono ${isMobile ? "text-white" : "text-indigo-100"}`}>
-                Who Goes There?
-              </h1>
-              <p className={`text-xs uppercase tracking-widest font-mono ${isMobile ? "text-neutral-500" : "text-indigo-300/40"}`}>
-                Identity challenge gate
-              </p>
-            </div>
-            <div className="space-y-4">
-              <input
-                type="text"
-                value={codename}
-                onChange={(e) => setCodename(e.target.value)}
-                placeholder="Speak the codename to continue..."
-                required
-                autoFocus
-                className={`w-full rounded-lg border px-4 py-3 text-center text-lg placeholder-white/20 transition-all focus:outline-none focus:ring-1 ${isMobile ? "border-neutral-800 bg-[#121216]/50 text-white focus:border-neutral-500 focus:ring-neutral-500" : "border-indigo-500/20 bg-indigo-950/20 text-indigo-100 focus:border-indigo-400 focus:ring-indigo-400"}`}
-              />
-            </div>
-            <button
-              disabled={busy}
-              type="submit"
-              className={`flex w-full items-center justify-center gap-2 rounded-lg py-3 font-semibold transition-all active:scale-[0.98] disabled:opacity-60 ${isMobile ? "bg-neutral-100 text-black hover:bg-neutral-200" : "bg-indigo-600 hover:bg-indigo-500 text-white"}`}
-            >
-              {busy && <Loader2 className={`h-4 w-4 animate-spin ${isMobile ? "text-black" : "text-white"}`} />}
-              Transmit
-            </button>
-          </form>
-        </div>
-      </div>
-    );
-  }
 
   return (
     <div className="flex min-h-screen items-center justify-center px-4 relative">
@@ -158,15 +65,6 @@ function AuthPage() {
 
         <div className="mt-6 flex justify-between items-center text-xs">
           <Link to="/" className="text-muted-foreground hover:text-primary">← Back to dashboard</Link>
-          <button
-            onClick={() => {
-              localStorage.removeItem("codename_verified");
-              setCodenameVerified(false);
-            }}
-            className="text-muted-foreground hover:text-destructive transition-colors cursor-pointer"
-          >
-            Lock Gate
-          </button>
         </div>
       </div>
     </div>
